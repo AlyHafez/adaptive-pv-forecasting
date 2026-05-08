@@ -3,7 +3,7 @@
 Configuration file for hyperparameters and settings
 """
 from dataclasses import dataclass, field
-from typing import Tuple
+
 
 
 @dataclass
