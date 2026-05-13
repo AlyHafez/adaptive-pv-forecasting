@@ -1,8 +1,15 @@
-import pandas as pd
-import numpy as np
+import pandas as pd # type: ignore[import]
+import numpy as np # type: ignore[import]
 import os
 from data_config import file_config
 def add_features(location:str)->pd.DataFrame:
+    """
+    adds time-based features, daylight indicator, and normalized power output to the processed PVGIS data for a given location.
+    Args:
+        location (str): Name of the location (e.g., "London").
+    Returns:
+        pd.DataFrame: DataFrame with added features 
+    """
     df = pd.read_csv(f"{file_config.processed_data_dir}/pvgis_{location.lower()}_processed.csv", parse_dates=["time"])
     df["location"] = location
 
@@ -24,6 +31,10 @@ def add_features(location:str)->pd.DataFrame:
     return df
 
 if __name__ == "__main__":
+    """
+    Main function to process all locations, add features, and save the results. 
+    It also combines all location data into a single CSV file for easier analysis.
+    """
     os.makedirs(file_config.processed_data_dir, exist_ok=True)
     all_dfs = []
     for loc in file_config.locations:
