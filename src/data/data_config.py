@@ -2,6 +2,7 @@
 """
 Configuration file for hyperparameters and settings
 """
+import os
 from dataclasses import dataclass, field
 
 
@@ -9,6 +10,9 @@ from dataclasses import dataclass, field
 @dataclass
 class FileConfig:
     """File paths and related configurations."""
+    base_dir: str = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    raw_data_dir: str = os.path.join(base_dir, "data/raw")
+    processed_data_dir: str = os.path.join(base_dir, "data/processed")
     locations: list[dict[str, str | float]] = field(default_factory=lambda: [
         {"lat": 51.5,  "lon": -0.1,  "name": "London"},
         {"lat": 48.8,  "lon": 2.3,   "name": "Paris"},
@@ -21,8 +25,7 @@ class FileConfig:
         {"lat": 59.3,  "lon": 18.1,  "name": "Stockholm"},
         {"lat": 45.7,  "lon": 4.8,   "name": "Lyon"},
     ])
-    raw_data_dir: str = "data/raw"
-    processed_data_dir: str = "data/processed"
+
     
 
 

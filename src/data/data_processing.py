@@ -1,8 +1,9 @@
 import pandas as pd  # type: ignore[import]
 import os
 from data_config import file_config
-os.chdir("/Users/alyshoukry/Desktop/MSc/Dissertation/adaptive-pv-forecasting")
+
 def clean_data():
+    os.makedirs(file_config.processed_data_dir, exist_ok=True)
     for loc in file_config.locations:
         name = str(loc["name"])
         output_file = f"{file_config.raw_data_dir}/pvgis_{name.lower()}.csv"
