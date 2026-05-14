@@ -26,8 +26,6 @@ class FileConfig:
         {"lat": 45.7,  "lon": 4.8,   "name": "Lyon"},
     ])
 
-    
-
 
 
 
