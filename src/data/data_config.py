@@ -27,6 +27,14 @@ class FileConfig:
         {"lat": 45.7,  "lon": 4.8,   "name": "Lyon"},
     ])
 
+class ModelConfig:
+    """Model hyperparameters and training settings."""
+    train_batch_size: int = 64
+    val_batch_size: int = 256
+    test_batch_size: int = 256
+    max_encoder_length: int = 168
+    max_prediction_length: int = 24
+
 
 
 
@@ -35,4 +43,5 @@ class FileConfig:
 
 # Global configuration instances
 file_config = FileConfig()
+model_config = ModelConfig()
 
