@@ -42,8 +42,8 @@ if __name__ == "__main__":
     all_dfs = []
     for loc in file_config.locations:
         name = str(loc["name"])
-        lat = loc["lat"]
-        lon = loc["lon"]
+        lat = float(loc["lat"])
+        lon = float(loc["lon"])
         df = add_features(name, lat, lon)
         df.to_csv(f"{file_config.processed_data_dir}/pvgis_{name.lower()}_features.csv", index=False)
         print(f"Saved {name}: {df.shape}")
