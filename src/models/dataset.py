@@ -1,7 +1,9 @@
 import pandas as pd # type: ignore[import]
+import logging
 from pytorch_forecasting import TimeSeriesDataSet # type: ignore[import]
 from pytorch_forecasting.data import GroupNormalizer # type: ignore[import]
-from src.data.data_config import file_config # type: ignore[import]
+from src.data.data_config import file_config, model_config # type: ignore[import]
+logging.basicConfig(level=logging.INFO)
 def split_data(
     data: pd.DataFrame
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -45,14 +47,49 @@ def create_dataset(data:pd.DataFrame, max_encoder_length:int, max_prediction_len
     )
     return training
 
+def dataloader(dataset: TimeSeriesDataSet, batch_size:int, train:bool=True) -> TimeSeriesDataSet.to_dataloader:
+    """Create a dataloader from a TimeSeriesDataSet for model training or evaluation.
+    Args:
+        dataset (TimeSeriesDataSet): The input TimeSeriesDataSet to create the dataloader from.
+        batch_size (int): The batch size to use for the dataloader.
+        train (bool): Whether to create a dataloader for training (with shuffling) or evaluation (without shuffling).
+    Returns:
+        DataLoader: A PyTorch DataLoader that can be used for model training or evaluation."""
+    return dataset.to_dataloader(
+        train=train,
+        batch_size=batch_size,
+        num_workers=0
+    )
 
 if __name__ == "__main__":
     data = pd.read_parquet(file_config.data_path)
     train_data, val_data, test_data = split_data(data)
     print(f"Train: {train_data.shape}, Val: {val_data.shape}, Test: {test_data.shape}")
-    max_encoder_length = 168 # use the past week of data
-    max_prediction_length = 24 # predict the next 24 hours
+    max_encoder_length = model_config.max_encoder_length# use the past week of data
+    max_prediction_length = model_config.max_prediction_length # predict the next 24 hours
     training_dataset = create_dataset(train_data, max_encoder_length, max_prediction_length)
     validation_dataset = TimeSeriesDataSet.from_dataset(training_dataset, val_data, stop_randomization=True)
     test_dataset = TimeSeriesDataSet.from_dataset(training_dataset, test_data, stop_randomization=True)
     print(f"Training dataset: {len(training_dataset)}, Validation dataset: {len(validation_dataset)}, Test dataset: {len(test_dataset)}")
+
+    train_dataloader = training_dataset.to_dataloader(
+        train=True,
+        batch_size=model_config.batch_size,
+        num_workers=0
+    )
+
+    val_dataloader = validation_dataset.to_dataloader(
+        train=False,
+        batch_size=model_config.batch_size * 4,
+        num_workers=0
+    )
+
+    test_dataloader = test_dataset.to_dataloader(
+        train=False,
+        batch_size=model_config.batch_size * 4,
+        num_workers=0
+    )
+    logging.info(f"Created dataloaders with sizes - Train: {len(train_dataloader)}, Val: {len(val_dataloader)}, Test: {len(test_dataloader)}")
+    x, y = next(iter(train_dataloader))
+    logging.info(f"Example batch - x shape: {x['encoder_cont'].shape}, y shape: {y[0].shape}")
+  
