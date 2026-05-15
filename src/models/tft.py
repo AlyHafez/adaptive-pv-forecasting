@@ -1,17 +1,18 @@
 from pytorch_forecasting import TemporalFusionTransformer, TimeSeriesDataSet # type: ignore[import]
-from pytorch_lightning import Trainer # type: ignore[import]
-from pytorch_forecasting.tuning import tuner # type: ignore[import]
+from src.utils.seed import set_seed # type: ignore[import]
 from src.models.dataset import split_data, create_dataset, dataloader  # type: ignore[import]
 from src.data.data_config import file_config, model_config # type: ignore[import]
 import pandas as pd # type: ignore[import]
 import logging
 from pytorch_forecasting.metrics import QuantileLoss # type: ignore[import]
-import pytorch_lightning as pl # type: ignore[import]
+from lightning.pytorch import Trainer # type: ignore[import]
+import lightning.pytorch as pl # type: ignore[import]
 
 logging.basicConfig(level=logging.INFO)
 
 def create_network():
-    return pl.Trainer(
+    set_seed(model_config.seed)
+    return Trainer(
         accelerator="auto",
         gradient_clip_val=0.1,
         logger=False,
@@ -29,7 +30,7 @@ def create_tft(training_dataset: TimeSeriesDataSet) -> TemporalFusionTransformer
         attention_head_size=model_config.attention_heads,
         dropout=model_config.dropout,
         hidden_continuous_size=model_config.hidden_continuous_size,
-        output_size=1,  # predict a single value (normalized power output)
+        output_size=7,
         loss=QuantileLoss(),
     )
 
