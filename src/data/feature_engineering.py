@@ -1,7 +1,10 @@
 import pandas as pd # type: ignore[import]
 import numpy as np # type: ignore[import]
 import os
+import logging
+from data_processing import clean_data
 from data_config import file_config
+logging.basicConfig(level=logging.INFO)
 def add_features(location:str, lat:float, lon:float)->pd.DataFrame:
     """
     adds time-based features, daylight indicator, and normalized power output to the processed PVGIS data for a given location.
@@ -12,7 +15,7 @@ def add_features(location:str, lat:float, lon:float)->pd.DataFrame:
     Returns:
         pd.DataFrame: DataFrame with added features 
     """
-    df = pd.read_csv(f"{file_config.processed_data_dir}/pvgis_{location.lower()}_processed.csv", parse_dates=["time"])
+    df = clean_data(location)
     df["location"] = location
     df["lat"] = lat
     df["lon"] = lon
@@ -45,11 +48,10 @@ if __name__ == "__main__":
         lat = float(loc["lat"])
         lon = float(loc["lon"])
         df = add_features(name, lat, lon)
-        df.to_csv(f"{file_config.processed_data_dir}/pvgis_{name.lower()}_features.csv", index=False)
-        print(f"Saved {name}: {df.shape}")
+        logging.info(f"extracted features for {name}: {df.shape}")
         all_dfs.append(df)
     df_all = pd.concat(all_dfs).reset_index(drop=True)
-    df_all.to_csv(f"{file_config.processed_data_dir}/pvgis_all.csv", index=False)
-    print(f"Combined: {df_all.shape}")
-    print(df_all["location"].value_counts())
-    print(df_all.head())
+    df_all.to_parquet(f"{file_config.processed_data_dir}/pvgis_all.parquet", index=False)
+    logging.info(f"Combined: {df_all.shape}")
+    logging.info(df_all["location"].value_counts())
+    

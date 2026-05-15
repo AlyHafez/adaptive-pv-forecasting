@@ -13,6 +13,7 @@ class FileConfig:
     base_dir: str = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     raw_data_dir: str = os.path.join(base_dir, "data/raw")
     processed_data_dir: str = os.path.join(base_dir, "data/processed")
+    data_path: str = os.path.join(processed_data_dir, "pvgis_all.csv")
     locations: list[dict[str, str | float]] = field(default_factory=lambda: [
         {"lat": 51.5,  "lon": -0.1,  "name": "London"},
         {"lat": 48.8,  "lon": 2.3,   "name": "Paris"},

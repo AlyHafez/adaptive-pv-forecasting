@@ -1,6 +1,7 @@
 """download data from PVGIS and save to local disk"""
 import requests  # type: ignore
-
+import logging
+logging.basicConfig(level=logging.INFO)
 def download_pvgis_data(latitude:float, longitude:float, start_year:int,
                          end_year:int, output_file:str)->None:
     """Download PVGIS data for a given location and time period and save to a local file.
@@ -30,6 +31,6 @@ def download_pvgis_data(latitude:float, longitude:float, start_year:int,
             f.write(request.text)
         print(f"Saved: {output_file}")
     else:
-        print(f"Failed to download data: {request.status_code} — {request.text}")
+        logging.error(f"Failed to download data for lat={latitude}, lon={longitude}. Status code: {request.status_code}")
 
 
