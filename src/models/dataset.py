@@ -74,19 +74,19 @@ if __name__ == "__main__":
 
     train_dataloader = training_dataset.to_dataloader(
         train=True,
-        batch_size=model_config.batch_size,
+        batch_size=model_config.train_batch_size,
         num_workers=0
     )
 
     val_dataloader = validation_dataset.to_dataloader(
         train=False,
-        batch_size=model_config.batch_size * 4,
+        batch_size=model_config.val_batch_size,
         num_workers=0
     )
 
     test_dataloader = test_dataset.to_dataloader(
         train=False,
-        batch_size=model_config.batch_size * 4,
+        batch_size=model_config.test_batch_size,
         num_workers=0
     )
     logging.info(f"Created dataloaders with sizes - Train: {len(train_dataloader)}, Val: {len(val_dataloader)}, Test: {len(test_dataloader)}")
