@@ -30,8 +30,8 @@ def create_tft(training_dataset: TimeSeriesDataSet) -> TemporalFusionTransformer
         attention_head_size=model_config.attention_heads,
         dropout=model_config.dropout,
         hidden_continuous_size=model_config.hidden_continuous_size,
-        output_size=7,
-        loss=QuantileLoss(),
+        output_size=3, # 3 quantiles: 0.1, 0.5, 0.9
+        loss=QuantileLoss(quantiles=[0.1, 0.5, 0.9]),
     )
 
 if __name__ == "__main__":

@@ -9,9 +9,18 @@ from dotenv import load_dotenv # type: ignore[import]
 import logging
 import os
 import pandas as pd # type: ignore[import]
-load_dotenv()
-wandb.login(key=os.getenv("WANDB_API_KEY"))
 logging.basicConfig(level=logging.INFO)
+load_dotenv()
+wandb_api_key = os.getenv("WANDB_API_KEY")
+if wandb_api_key is None:
+    msg = "WANDB_API_KEY not found in environment variables. Please set it in the .env file."
+    logging.error(msg)
+    raise ValueError(msg)
+else:
+    logging.info("WANDB_API_KEY successfully loaded from environment variables.")
+    wandb.login(key=wandb_api_key) #  type: ignore[attr-defined]
+
+
 def find_learning_rate(trainer, model, train_dataloader):
     tuner = Tuner(trainer)
     res = tuner.lr_find(model, train_dataloader, min_lr=1e-5, max_lr=1, num_training=200)
