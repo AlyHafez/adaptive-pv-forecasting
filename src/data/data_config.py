@@ -34,6 +34,11 @@ class ModelConfig:
     test_batch_size: int = 256
     max_encoder_length: int = 168
     max_prediction_length: int = 24
+    hidden_size:int = 32
+    attention_heads:int = 4
+    dropout:float = 0.1
+    hidden_continuous_size:int = 16
+    seed:int = 42
 
 
 
