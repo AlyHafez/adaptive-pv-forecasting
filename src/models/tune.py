@@ -4,6 +4,7 @@ from pytorch_forecasting import TimeSeriesDataSet# type: ignore[import]
 from src.models.dataset import split_data, create_dataset, dataloader# type: ignore[import]
 from src.config import file_config, model_config# type: ignore[import]
 import pandas as pd# type: ignore[import]
+import optuna  # type: ignore[import]
 import logging# type: ignore[import]
 import pickle# type: ignore[import]
 logging.basicConfig(level=logging.INFO)
@@ -34,6 +35,7 @@ def optimize_tft(train_dataloader, val_dataloader, model_path: str):
     return study 
 
 if __name__ == "__main__":
+    optuna.logging.set_verbosity(optuna.logging.INFO)
     data = pd.read_parquet(file_config.data_path)
     train_data, val_data, test_data = split_data(data)
     training_dataset = create_dataset(train_data, model_config.max_encoder_length, model_config.max_prediction_length)
