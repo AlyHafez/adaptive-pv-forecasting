@@ -16,8 +16,8 @@ def optimize_tft(train_dataloader, val_dataloader, model_path: str):
         train_dataloader,
         val_dataloader,
         model_path=model_path,
-        n_trials=50,
-        max_epochs=20,
+        n_trials=10,
+        max_epochs=5,
         gradient_clip_val_range=(0.01, 1.0),
         hidden_size_range=(8, 128),
         hidden_continuous_size_range=(8, 64),
@@ -25,12 +25,13 @@ def optimize_tft(train_dataloader, val_dataloader, model_path: str):
         dropout_range=(0.1, 0.3),
         learning_rate=model_config.lr,
         use_learning_rate_finder=False,
-        trainer_kwargs=dict(    
-            limit_train_batches=50,
+        trainer_kwargs=dict(
+            limit_train_batches=30,
             accelerator="auto",
             devices=1,
-            enable_progress_bar=False,),
-        reduce_on_plateau_patience=4,
+            enable_progress_bar=False,
+        ),
+        reduce_on_plateau_patience=2,
     )
     return study 
 
