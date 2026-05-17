@@ -2,7 +2,7 @@ import pandas as pd # type: ignore[import]
 import logging
 from pytorch_forecasting import TimeSeriesDataSet # type: ignore[import]
 from pytorch_forecasting.data import GroupNormalizer # type: ignore[import]
-from src.data.data_config import file_config, model_config # type: ignore[import]
+from src.config import file_config, model_config 
 logging.basicConfig(level=logging.INFO)
 def split_data(
     data: pd.DataFrame
@@ -58,7 +58,8 @@ def dataloader(dataset: TimeSeriesDataSet, batch_size:int, train:bool=True) -> T
     return dataset.to_dataloader(
         train=train,
         batch_size=batch_size,
-        num_workers=0
+        num_workers=7,
+        persistent_workers=True
     )
 
 if __name__ == "__main__":

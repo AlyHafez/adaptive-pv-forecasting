@@ -1,12 +1,12 @@
 from pytorch_forecasting import TemporalFusionTransformer, TimeSeriesDataSet # type: ignore[import]
-from src.utils.seed import set_seed # type: ignore[import]
+from src.utils.utils import set_seed # type: ignore[import]
 from src.models.dataset import split_data, create_dataset, dataloader  # type: ignore[import]
-from src.data.data_config import file_config, model_config # type: ignore[import]
+from src.config import file_config, model_config # type: ignore[import]
 import pandas as pd # type: ignore[import]
 import logging
 from pytorch_forecasting.metrics import QuantileLoss # type: ignore[import]
 from lightning.pytorch import Trainer # type: ignore[import]
-import lightning.pytorch as pl # type: ignore[import]
+
 
 logging.basicConfig(level=logging.INFO)
 
@@ -25,13 +25,16 @@ def create_tft(training_dataset: TimeSeriesDataSet) -> TemporalFusionTransformer
         TemporalFusionTransformer: An instance of the Temporal Fusion Transformer model ready for training."""
     return TemporalFusionTransformer.from_dataset(
         training_dataset,
-        learning_rate=0.03,
+        learning_rate=model_config.lr,
         hidden_size=model_config.hidden_size,
         attention_head_size=model_config.attention_heads,
         dropout=model_config.dropout,
         hidden_continuous_size=model_config.hidden_continuous_size,
-        output_size=3, # 3 quantiles: 0.1, 0.5, 0.9
+        output_size=3,
         loss=QuantileLoss(quantiles=[0.1, 0.5, 0.9]),
+        optimizer="ranger",                  
+        reduce_on_plateau_patience=4,        
+        log_interval=10,                     
     )
 
 if __name__ == "__main__":

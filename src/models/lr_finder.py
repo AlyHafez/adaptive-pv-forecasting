@@ -1,8 +1,9 @@
 from src.models.tft import create_tft, create_network
 from src.models.dataset import dataloader, create_dataset, split_data
-from src.data.data_config import file_config, model_config
+from src.config import file_config, model_config 
 from pytorch_forecasting.tuning import Tuner # type: ignore[import]
 from pytorch_forecasting import TimeSeriesDataSet # type: ignore[import]
+from src.utils.utils import wandb_login # type: ignore[import]
 import matplotlib.pyplot as plt # type: ignore[import]
 import wandb # type: ignore[import]
 from dotenv import load_dotenv # type: ignore[import]
@@ -10,15 +11,8 @@ import logging
 import os
 import pandas as pd # type: ignore[import]
 logging.basicConfig(level=logging.INFO)
-load_dotenv()
-wandb_api_key = os.getenv("WANDB_API_KEY")
-if wandb_api_key is None:
-    msg = "WANDB_API_KEY not found in environment variables. Please set it in the .env file."
-    logging.error(msg)
-    raise ValueError(msg)
-else:
-    logging.info("WANDB_API_KEY successfully loaded from environment variables.")
-    wandb.login(key=wandb_api_key) #  type: ignore[attr-defined]
+wandb_login()
+
 
 
 def find_learning_rate(trainer, model, train_dataloader):
