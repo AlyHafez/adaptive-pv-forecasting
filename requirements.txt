@@ -1,6 +1,22 @@
-requests
+# Data
 pandas
-matplotlib
-pytorch-forecasting
-wandb
+numpy
 pyarrow
+requests
+
+# ML
+torch
+pytorch-forecasting
+lightning
+optuna
+optuna-integration[pytorch_lightning]
+lightgbm
+
+# Experiment tracking
+wandb
+tensorboard
+
+# Utils
+python-dotenv
+matplotlib
+statsmodels
