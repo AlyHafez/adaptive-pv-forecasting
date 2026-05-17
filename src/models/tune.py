@@ -3,7 +3,6 @@ from torch.utils.data import DataLoader # type: ignore[import]
 from pytorch_forecasting import TimeSeriesDataSet# type: ignore[import]
 from src.models.dataset import split_data, create_dataset, dataloader# type: ignore[import]
 from src.config import file_config, model_config# type: ignore[import]
-from src.utils.utils import wandb_login# type: ignore[import]
 import pandas as pd# type: ignore[import]
 import logging# type: ignore[import]
 import pickle# type: ignore[import]
@@ -25,7 +24,11 @@ def optimize_tft(train_dataloader, val_dataloader, model_path: str):
         dropout_range=(0.1, 0.3),
         learning_rate=model_config.lr,
         use_learning_rate_finder=False,
-        trainer_kwargs=dict(limit_train_batches=50),
+        trainer_kwargs=dict(    
+            limit_train_batches=50,
+            accelerator="auto",
+            devices=1,
+            enable_progress_bar=False,),
         reduce_on_plateau_patience=4,
     )
     return study 
