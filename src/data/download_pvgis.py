@@ -1,6 +1,6 @@
 import os
 import time
-from data_config import file_config
+from src.config import file_config
 from data_acquisition import download_pvgis_data
 
 

@@ -1,6 +1,6 @@
 import pandas as pd  # type: ignore[import]
 import os
-from data_config import file_config
+from src.config import file_config
 
 def clean_data(name:str)-> pd.DataFrame:
     os.makedirs(file_config.processed_data_dir, exist_ok=True)

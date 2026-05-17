@@ -3,7 +3,7 @@ import numpy as np # type: ignore[import]
 import os
 import logging
 from data_processing import clean_data
-from data_config import file_config
+from src.config import file_config 
 logging.basicConfig(level=logging.INFO)
 def add_features(location:str, lat:float, lon:float)->pd.DataFrame:
     """
