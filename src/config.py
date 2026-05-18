@@ -40,6 +40,7 @@ class ModelConfig:
     attention_heads:int = 2
     dropout:float = 0.2
     hidden_continuous_size:int = 9
+    grad_clip_val:float = 0.9
     seed:int = 42
     lr:float = 0.01
 
