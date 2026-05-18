@@ -31,7 +31,7 @@ class FileConfig:
 
 class ModelConfig:
     """Model hyperparameters and training settings."""
-    train_batch_size: int = 256
+    train_batch_size: int = 512
     val_batch_size: int = 512
     test_batch_size: int = 512
     max_encoder_length: int = 168
