@@ -53,4 +53,4 @@ def train(epochs: int, accelerator: str = "auto", gradient_clip_val: float = 0.9
 if __name__ == "__main__":
     wandb_login()
     os.makedirs(f"{file_config.models_dir}/tft", exist_ok=True)
-    train(epochs=50)
+    train(epochs=50, accelerator="auto", gradient_clip_val=model_config.grad_clip_val)
