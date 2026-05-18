@@ -58,8 +58,8 @@ def dataloader(dataset: TimeSeriesDataSet, batch_size:int, train:bool=True) -> T
     return dataset.to_dataloader(
         train=train,
         batch_size=batch_size,
-        num_workers=7,
-        persistent_workers=True
+        num_workers=0,
+        persistent_workers=False
     )
 
 if __name__ == "__main__":

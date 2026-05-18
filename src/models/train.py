@@ -13,9 +13,9 @@ from src.config import file_config, model_config
 from src.utils.utils import wandb_login
 
 logging.basicConfig(level=logging.INFO)
-wandb_login()
 
-def train(epochs: int, accelerator: str = "auto", gradient_clip_val: float = 0.1):
+
+def train(epochs: int, accelerator: str = "auto", gradient_clip_val: float = 0.9):
     data = pd.read_parquet(file_config.data_path)
     train_data, val_data, _ = split_data(data)
     
@@ -31,8 +31,8 @@ def train(epochs: int, accelerator: str = "auto", gradient_clip_val: float = 0.1
     early_stop = EarlyStopping(monitor="val_loss", min_delta=1e-4, patience=10, mode="min")
     checkpoint = ModelCheckpoint(
         monitor="val_loss",
-        dirpath="checkpoints/",
-        filename="tft-{epoch:02d}-{val_loss:.4f}",
+        dirpath=f"{file_config.models_dir}/tft",
+        filename="tft-best-model",
         save_top_k=1,
         mode="min"
     )
@@ -51,4 +51,6 @@ def train(epochs: int, accelerator: str = "auto", gradient_clip_val: float = 0.1
 
 
 if __name__ == "__main__":
+    wandb_login()
+    os.makedirs(f"{file_config.models_dir}/tft", exist_ok=True)
     train(epochs=50)
