@@ -82,9 +82,9 @@ if __name__ == "__main__":
         
         # save train predictions (30 days) for MLP
         pd.DataFrame({
-            "actual": predictions.y[0].numpy().flatten(),
-            "median": predictions.output[:, :, 1].numpy().flatten(),
-            "lower": predictions.output[:, :, 0].numpy().flatten(),
-            "upper": predictions.output[:, :, 2].numpy().flatten(),
+            "actual": predictions.y[0].cpu().numpy().flatten(),
+            "median": predictions.output[:, :, 1].cpu().numpy().flatten(),
+            "lower": predictions.output[:, :, 0].cpu().numpy().flatten(),
+            "upper": predictions.output[:, :, 2].cpu().numpy().flatten(),
         }).to_csv(f"{file_config.results_dir}/predictions_ukpv.csv", index=False)
         logging.info("UK_PV predictions saved")
