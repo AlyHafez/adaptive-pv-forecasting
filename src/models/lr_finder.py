@@ -1,6 +1,6 @@
 from src.models.tft import create_tft, create_network
 from src.models.dataset import dataloader, create_dataset, split_data
-from src.config import file_config, model_config 
+from src.config import file_config, tft_config 
 from pytorch_forecasting.tuning import Tuner # type: ignore[import]
 from pytorch_forecasting import TimeSeriesDataSet # type: ignore[import]
 from src.utils.utils import wandb_login # type: ignore[import]
@@ -36,10 +36,10 @@ if __name__ == "__main__":
     trainer = create_network()
     data = pd.read_parquet(file_config.data_path)
     train_data, val_data, test_data = split_data(data)
-    training_dataset = create_dataset(train_data, model_config.max_encoder_length, model_config.max_prediction_length)
+    training_dataset = create_dataset(train_data, tft_config.max_encoder_length, tft_config.max_prediction_length)
     validation_dataset = TimeSeriesDataSet.from_dataset(training_dataset, val_data, stop_randomization=True)
-    train_dataloader = dataloader(training_dataset, batch_size=model_config.train_batch_size)
-    val_dataloader = dataloader(validation_dataset, batch_size=model_config.val_batch_size, train=False)
+    train_dataloader = dataloader(training_dataset, batch_size=tft_config.train_batch_size)
+    val_dataloader = dataloader(validation_dataset, batch_size=tft_config.val_batch_size, train=False)
     model = create_tft(training_dataset=training_dataset)  # Pass the training dataset since we need the model architecture for lr_find
     lr_finder_results = find_learning_rate(trainer, model, train_dataloader)
     lr_df = pd.DataFrame(lr_finder_results)

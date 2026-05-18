@@ -2,7 +2,7 @@ import pandas as pd # type: ignore[import]
 import logging
 from pytorch_forecasting import TimeSeriesDataSet # type: ignore[import]
 from pytorch_forecasting.data import GroupNormalizer # type: ignore[import]
-from src.config import file_config, model_config 
+from src.config import file_config, tft_config 
 logging.basicConfig(level=logging.INFO)
 def split_data(
     data: pd.DataFrame
@@ -66,8 +66,8 @@ if __name__ == "__main__":
     data = pd.read_parquet(file_config.data_path)
     train_data, val_data, test_data = split_data(data)
     print(f"Train: {train_data.shape}, Val: {val_data.shape}, Test: {test_data.shape}")
-    max_encoder_length = model_config.max_encoder_length# use the past week of data
-    max_prediction_length = model_config.max_prediction_length # predict the next 24 hours
+    max_encoder_length = tft_config.max_encoder_length# use the past week of data
+    max_prediction_length = tft_config.max_prediction_length # predict the next 24 hours
     training_dataset = create_dataset(train_data, max_encoder_length, max_prediction_length)
     validation_dataset = TimeSeriesDataSet.from_dataset(training_dataset, val_data, stop_randomization=True)
     test_dataset = TimeSeriesDataSet.from_dataset(training_dataset, test_data, stop_randomization=True)
@@ -75,19 +75,19 @@ if __name__ == "__main__":
 
     train_dataloader = training_dataset.to_dataloader(
         train=True,
-        batch_size=model_config.train_batch_size,
+        batch_size=tft_config.train_batch_size,
         num_workers=0
     )
 
     val_dataloader = validation_dataset.to_dataloader(
         train=False,
-        batch_size=model_config.val_batch_size,
+        batch_size=tft_config.val_batch_size,
         num_workers=0
     )
 
     test_dataloader = test_dataset.to_dataloader(
         train=False,
-        batch_size=model_config.test_batch_size,
+        batch_size=tft_config.test_batch_size,
         num_workers=0
     )
     logging.info(f"Created dataloaders with sizes - Train: {len(train_dataloader)}, Val: {len(val_dataloader)}, Test: {len(test_dataloader)}")
