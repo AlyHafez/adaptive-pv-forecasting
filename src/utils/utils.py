@@ -9,7 +9,7 @@ from lightning.pytorch import seed_everything # type: ignore[import]
 logging.basicConfig(level=logging.INFO)
 def wandb_login():
     load_dotenv()
-    wandb_api_key = os.getenv("WANDB_API_KEY")
+    wandb_api_key = os.getenv("WANDB_API_KEY") #load the API key from Environment variables
     if wandb_api_key is None:
         msg = "WANDB_API_KEY not found in environment variables. Please set it in the .env file."
         logging.error(msg)
