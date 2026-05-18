@@ -40,7 +40,7 @@ def train(epochs: int, accelerator: str = "auto", gradient_clip_val: float = 0.9
     
     trainer = Trainer(
         accelerator=accelerator,
-        devices=2,
+        devices=1,
         max_epochs=epochs,
         gradient_clip_val=gradient_clip_val,
         callbacks=[early_stop, checkpoint],
