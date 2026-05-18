@@ -81,7 +81,7 @@ if __name__ == "__main__":
     weather_df = download_openmeteo(lat, lon)
     
     pvgis_format_df = prepare_ukpv_as_pvgis(pv_df, weather_df, ss_id, lat, lon)
-    df = add_features(f"london", lat, lon, df=pvgis_format_df)
+    df = add_features(f"London", lat, lon, df=pvgis_format_df)
     
     os.makedirs(file_config.processed_data_dir, exist_ok=True)
     df.to_parquet(f"{file_config.processed_data_dir}/ukpv_london_tft.parquet", index=False)
