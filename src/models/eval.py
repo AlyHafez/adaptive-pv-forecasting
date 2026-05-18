@@ -53,10 +53,10 @@ if __name__ == "__main__":
         predictions = evaluate_tft(best_model, test_dataloader)
         
         pd.DataFrame({
-            "actual": predictions.y[0].numpy().flatten(),
-            "median": predictions.output[:, :, 1].numpy().flatten(),
-            "lower": predictions.output[:, :, 0].numpy().flatten(),
-            "upper": predictions.output[:, :, 2].numpy().flatten(),
+            "actual": predictions.y[0].cpu().numpy().flatten(),
+            "median": predictions.output[:, :, 1].cpu().numpy().flatten(),
+            "lower": predictions.output[:, :, 0].cpu().numpy().flatten(),
+            "upper": predictions.output[:, :, 2].cpu().numpy().flatten(),
         }).to_csv(f"{file_config.results_dir}/predictions_tft.csv", index=False)
         logging.info("PVGIS predictions saved")
 
@@ -66,8 +66,8 @@ if __name__ == "__main__":
         
         # last 37 days
         last_date = ukpv_df["time"].max()
-        ukpv_37 = ukpv_df[ukpv_df["time"] >= last_date - pd.Timedelta(days=37)].reset_index(drop=True)
-        ukpv_37["time_idx"] = range(len(ukpv_37))  # reset time_idx
+        ukpv_37 = ukpv_df.reset_index(drop=True)
+        ukpv_37["time_idx"] = range(len(ukpv_37))
         
         # create dataset from training reference
         ukpv_dataset = TimeSeriesDataSet.from_dataset(

@@ -104,11 +104,11 @@ if __name__ == "__main__":
     df = pd.read_parquet(f"{file_config.processed_data_dir}/ukpv_london_tft.parquet")
     
     last_date = df["time"].max()
-    train_df = df[df["time"] >= last_date - pd.Timedelta(days=37)]
-    train_df = train_df[train_df["time"] < last_date - pd.Timedelta(days=7)]
+    # In train_residuals.py __main__
+    train_df = df[df["time"].dt.month < 12]  # Jan-Nov
+    test_df = df[df["time"].dt.month == 12]  # December
     
     predictions_df = pd.read_csv(f"{file_config.results_dir}/predictions_ukpv.csv")
-    # take first 30 days of predictions (not all 37)
     train_predictions = predictions_df["median"].values[:len(train_df)]
 
     logging.info(f"train_df: {train_df.shape}, predictions: {len(train_predictions)}")
