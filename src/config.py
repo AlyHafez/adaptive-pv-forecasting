@@ -15,6 +15,7 @@ class FileConfig:
     processed_data_dir: str = os.path.join(base_dir, "data/processed")
     data_path: str = os.path.join(processed_data_dir, "pvgis_all.parquet")
     results_dir: str = os.path.join(base_dir, "results")
+    models_dir: str = os.path.join(results_dir, "models")
     locations: list[dict[str, str | float]] = field(default_factory=lambda: [
         {"lat": 51.5,  "lon": -0.1,  "name": "London"},
         {"lat": 48.8,  "lon": 2.3,   "name": "Paris"},
@@ -35,10 +36,10 @@ class ModelConfig:
     test_batch_size: int = 256
     max_encoder_length: int = 168
     max_prediction_length: int = 24
-    hidden_size:int = 32
-    attention_heads:int = 4
-    dropout:float = 0.1
-    hidden_continuous_size:int = 16
+    hidden_size:int = 41
+    attention_heads:int = 2
+    dropout:float = 0.2
+    hidden_continuous_size:int = 9
     seed:int = 42
     lr:float = 0.01
 
