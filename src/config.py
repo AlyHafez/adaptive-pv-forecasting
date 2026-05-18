@@ -29,8 +29,8 @@ class FileConfig:
         {"lat": 45.7,  "lon": 4.8,   "name": "Lyon"},
     ])
 
-class ModelConfig:
-    """Model hyperparameters and training settings."""
+class TFTConfig:
+    """TFT Model hyperparameters and training settings."""
     train_batch_size: int = 1024
     val_batch_size: int = 1024
     test_batch_size: int = 1024
@@ -45,12 +45,18 @@ class ModelConfig:
     lr:float = 0.01
 
 
-
+class ResidualsConfig:
+    """Residuals model hyperparameters and training settings."""
+    batch_size: int = 32
+    hidden_size: int = 32
+    dropout: float = 0.1
+    lr: float = 0.0001
+    seed: int = 42
 
 
 
 
 # Global configuration instances
 file_config = FileConfig()
-model_config = ModelConfig()
-
+tft_config = TFTConfig()
+residuals_config = ResidualsConfig()
