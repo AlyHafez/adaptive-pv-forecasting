@@ -3,7 +3,7 @@ import numpy as np # type: ignore[import]
 import logging # type: ignore[import]
 import wandb# type: ignore[import]
 import argparse
-from src.config import file_config, model_config # type: ignore[import]
+from src.config import file_config, tft_config # type: ignore[import]
 from src.utils.utils import wandb_login # type: ignore[import]
 from src.models.eval import load_model, evaluate_tft # type: ignore[import]
 from src.models.dataset import split_data, create_dataset, dataloader
@@ -63,6 +63,7 @@ def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
     }
 
 def main():
+    """Main function to evaluate the TFT model and compute metrics."""
     wandb_login()
     parser = argparse.ArgumentParser()
     parser.add_argument("--from-csv", action="store_true", help="Load predictions from CSV instead of running model")
@@ -76,9 +77,9 @@ def main():
 
         data = pd.read_parquet(file_config.data_path)
         train_data, val_data, test_data = split_data(data)
-        training_dataset = create_dataset(train_data, model_config.max_encoder_length, model_config.max_prediction_length)
+        training_dataset = create_dataset(train_data, tft_config.max_encoder_length, tft_config.max_prediction_length)
         test_dataset = TimeSeriesDataSet.from_dataset(training_dataset, test_data, stop_randomization=True)
-        test_dataloader = dataloader(test_dataset, batch_size=model_config.test_batch_size, train=False)
+        test_dataloader = dataloader(test_dataset, batch_size=tft_config.test_batch_size, train=False)
         checkpoint_path = f"{file_config.models_dir}/tft/tft-best-model.ckpt"  
         best_model = load_model(checkpoint_path)
         predictions = evaluate_tft(best_model, test_dataloader)
