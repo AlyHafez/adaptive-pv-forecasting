@@ -58,7 +58,7 @@ def dataloader(dataset: TimeSeriesDataSet, batch_size:int, train:bool=True) -> T
     return dataset.to_dataloader(
         train=train,
         batch_size=batch_size,
-        num_workers=20,
+        num_workers=8,
         persistent_workers=True
     )
 
