@@ -108,8 +108,9 @@ if __name__ == "__main__":
     train_df = train_df[train_df["time"] < last_date - pd.Timedelta(days=7)]
     
     predictions_df = pd.read_csv(f"{file_config.results_dir}/predictions_ukpv.csv")
-    train_predictions = predictions_df["median"].values
-    
+    # take first 30 days of predictions (not all 37)
+    train_predictions = predictions_df["median"].values[:len(train_df)]
+
     logging.info(f"train_df: {train_df.shape}, predictions: {len(train_predictions)}")
     
     os.makedirs(f"{file_config.models_dir}/residual", exist_ok=True)
