@@ -3,6 +3,7 @@ pandas
 numpy
 pyarrow
 requests
+polars
 
 # ML
 torch
