@@ -27,7 +27,7 @@ def evaluate_tft(best_model: TemporalFusionTransformer, test_dataloader: TimeSer
         test_dataloader, mode="quantiles",
         return_x=True, return_y=True, return_index=True,
         show_progress_bar=True,
-        trainer_kwargs=dict(accelerator="auto"),
+        trainer_kwargs=dict(accelerator="auto",devices=1),
     )
     return predictions
 
