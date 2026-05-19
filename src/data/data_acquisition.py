@@ -6,6 +6,7 @@ import polars as pl # type: ignore[import]
 import os
 from huggingface_hub import hf_hub_download # type: ignore[import]
 from dotenv import load_dotenv # type: ignore[import]
+from src.config import file_config
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 def download_pvgis_data(latitude:float, longitude:float, start_year:int,
@@ -39,8 +40,16 @@ def download_pvgis_data(latitude:float, longitude:float, start_year:int,
     else:
         logging.error(f"Failed to download data for lat={latitude}, lon={longitude}. Status code: {request.status_code}")
 
-
-def get_london_pv_system():
+def get_pv_systems_multiple(n: int = 10, exclude_ss_id: int = 2746,                             
+                            lat_min: float = 51.3, lat_max: float = 51.7,
+                             lon_min: float = -0.5, lon_max: float = 0.3):
+    """Get multiple London residential PV systems for transfer learning.
+    Args:
+        n: number of systems to return
+        exclude_ss_id: exclude the test household
+    Returns:
+        pl.DataFrame: metadata for n systems
+    """
     metadata_path = hf_hub_download(
         repo_id="openclimatefix/uk_pv",
         filename="metadata.csv",
@@ -50,17 +59,39 @@ def get_london_pv_system():
     metadata = pl.read_csv(metadata_path)
     
     london = metadata.filter(
-        (pl.col("latitude_rounded").is_between(51.3, 51.7)) &
-        (pl.col("longitude_rounded").is_between(-0.5, 0.3)) &
+        (pl.col("latitude_rounded").is_between(lat_min, lat_max)) &
+        (pl.col("longitude_rounded").is_between(lon_min, lon_max)) &
+        (pl.col("kWp") <= 4.0) &
+        (pl.col("end_datetime_GMT") >= "2023-12-01") &
+        (pl.col("ss_id") != exclude_ss_id)  # exclude test household
+    )
+    
+    systems = london.head(n)
+    logging.info(f"Found {len(systems)} for coordinate range({lat_min}, {lon_min}) to ({lat_max}, {lon_max}) systems for transfer learning")
+    return systems
+
+def get_pv_system( lat_min: float = 51.3, lat_max: float = 51.7,
+                  lon_min: float = -0.5, lon_max: float = 0.3):
+    metadata_path = hf_hub_download(
+        repo_id="openclimatefix/uk_pv",
+        filename="metadata.csv",
+        repo_type="dataset",
+        token=os.getenv("HF_TOKEN")
+    )
+    metadata = pl.read_csv(metadata_path)
+    
+    london = metadata.filter(
+        (pl.col("latitude_rounded").is_between(lat_min, lat_max)) &
+        (pl.col("longitude_rounded").is_between(lon_min, lon_max)) &
         (pl.col("kWp") <= 4.0) &
         (pl.col("end_datetime_GMT") >= "2023-12-01")
     )
     
     system = london.row(0, named=True)
     logging.info(f"Selected system {system['ss_id']} at lat={system['latitude_rounded']}, lon={system['longitude_rounded']}, kWp={system['kWp']}")
-    return system["ss_id"], system["latitude_rounded"], system["longitude_rounded"]
+    return system["ss_id"], system["latitude_rounded"], system["longitude_rounded"], system["kWp"]
 
-def download_ukpv_system(ss_id: int, year: int = 2023) -> pd.DataFrame:
+def download_ukpv_system(ss_id: int,kWp: float, year: int = 2023) -> pd.DataFrame:
     df = pl.scan_parquet(
         "hf://datasets/openclimatefix/uk_pv/30_minutely",
         storage_options={"token": os.getenv("HF_TOKEN")}
@@ -68,11 +99,12 @@ def download_ukpv_system(ss_id: int, year: int = 2023) -> pd.DataFrame:
         (pl.col("ss_id") == ss_id) &
         (pl.col("datetime_GMT").dt.year() == year)
     ).collect().to_pandas()
-
+    df["ssid"] = df["ss_id"].astype(str)  # ensure ss_id is string for merging
     df["datetime_GMT"] = pd.to_datetime(df["datetime_GMT"])
     df = df.set_index("datetime_GMT")
     df = df["generation_Wh"].resample("1h").sum().reset_index()
-    df["power_kw"] = df["generation_Wh"] / 4000.0
+    df["ss_id"] = ss_id  # use the parameter directly, no need to read from column
+    df["power_kw"] = df["generation_Wh"] / (kWp * 1000)
     
     logging.info(f"Downloaded {len(df)} hourly records for system {ss_id}")
     return df
@@ -93,7 +125,8 @@ def download_openmeteo(lat: float, lon: float, start: str = "2023-01-01", end: s
         "start_date": start,
         "end_date": end,
         "hourly": "temperature_2m,shortwave_radiation,diffuse_radiation,direct_radiation,windspeed_10m,sunshine_duration",
-        "timezone": "UTC"
+        "timezone": "UTC",
+        "models": "ukmo_seamless"
     }
     response = requests.get(url, params=params, timeout=30)
     data = response.json()
@@ -103,9 +136,22 @@ def download_openmeteo(lat: float, lon: float, start: str = "2023-01-01", end: s
     return df
 
 if __name__ == "__main__":
-    ss_id, lat, lon = get_london_pv_system()
-    df = download_ukpv_system(ss_id, year=2023)
-    print(df.head())
-    print(f"Shape: {df.shape}")
+    systems = get_pv_systems_multiple(n=10, exclude_ss_id=2746)
+    ss_id, lat, lon, kwp = get_pv_system()
+    df_test = download_ukpv_system(ss_id, kwp, year=2023)
+    df_all: list[pd.DataFrame] = []
+    for system in systems.iter_rows(named=True):
+        ss_id = system["ss_id"]
+        lat = system["latitude_rounded"]
+        lon = system["longitude_rounded"]
+        kwp = system["kWp"]
+        df = download_ukpv_system(ss_id, kwp, year=2023)
+        df_all.append(df)
+    
+    print(df_test.head())
+    print(f"Shape: {df_test.shape}")
     weather_df = download_openmeteo(lat, lon)
+    weather_df.to_parquet(f"{file_config.raw_data_dir}/ukpv__weather{lat}_{lon}.parquet", index=False)
     print(weather_df.head())
+
+    

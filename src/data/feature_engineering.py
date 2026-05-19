@@ -2,15 +2,19 @@ import pandas as pd # type: ignore[import]
 import numpy as np # type: ignore[import]
 import os
 import logging
-from src.data.data_acquisition import download_openmeteo, download_ukpv_system,  get_london_pv_system
+from src.data.data_acquisition import download_openmeteo, download_ukpv_system,  get_pv_system, get_pv_systems_multiple
 from src.data.data_processing import clean_data
 from src.config import file_config 
 logging.basicConfig(level=logging.INFO)
 def add_features(location: str, lat: float, lon: float, df: pd.DataFrame = None) -> pd.DataFrame:
+    
     if df is None:
         df = clean_data(location)  # original PVGIS flow
-    
-    df["location"] = location
+        df["location"] = location.lower()
+        df["series_id"] = df["location"]
+    else: 
+        df["location"] = location.lower()
+        df["series_id"] =  df["location"] + df["ss_id"].astype(str) # for UK_PV systems, create unique series_id by combining location and ss_id
     df["lat"] = lat
     df["lon"] = lon
     df["hour_sin"] = np.sin(2 * np.pi * df["time"].dt.hour / 24)
@@ -76,14 +80,51 @@ def prepare_ukpv_as_pvgis(
 
 
 if __name__ == "__main__":
-    ss_id, lat, lon = get_london_pv_system()
-    pv_df = download_ukpv_system(ss_id, year=2023)
-    weather_df = download_openmeteo(lat, lon)
-    
-    pvgis_format_df = prepare_ukpv_as_pvgis(pv_df, weather_df, ss_id, lat, lon)
-    df = add_features(f"London", lat, lon, df=pvgis_format_df)
-    
+    # prepare pvgis data with features for TFT training
     os.makedirs(file_config.processed_data_dir, exist_ok=True)
-    df.to_parquet(f"{file_config.processed_data_dir}/ukpv_london_tft.parquet", index=False)
+    all_dfs = []
+    for loc in file_config.locations:
+        name = str(loc["name"])
+        lat = float(loc["lat"])
+        lon = float(loc["lon"])
+        df = add_features(name, lat, lon)
+        logging.info(f"extracted features for {name}: {df.shape}")
+        all_dfs.append(df)
+    df_pvgis_all = pd.concat(all_dfs).reset_index(drop=True)
+    df_pvgis_all.to_parquet(f"{file_config.processed_data_dir}/pvgis_all.parquet", index=False) 
+    logging.info(f"Combined: {df_pvgis_all.shape}")
+    logging.info(f"\n{df_pvgis_all.head()}")
+    logging.info(df_pvgis_all["location"].value_counts())
+
+    # Example usage: prepare UK_PV data for one system and save, then prepare for multiple systems and save, then also prepare original PVGIS data with features for TFT training.
+    ss_id, lat, lon, kwp = get_pv_system()
+    pv_df = download_ukpv_system(ss_id, kwp, year=2023)
+    weather_df = download_openmeteo(lat, lon)
+    pvgis_format_df = prepare_ukpv_as_pvgis(pv_df, weather_df, ss_id, lat, lon)
+    pvgis_format_df["ss_id"] = ss_id  # add ss_id for reference
+    df = add_features(f"London", lat, lon, df=pvgis_format_df)
+    df.to_parquet(f"{file_config.processed_data_dir}/ukpv_london_test_household.parquet", index=False)
     logging.info(f"Saved: {df.shape}")
     logging.info(f"\n{df.head()}")
+
+    systems = get_pv_systems_multiple(n=10, exclude_ss_id=2746)
+    df_all: list[pd.DataFrame] = []
+    for system in systems.iter_rows(named=True):
+        ss_id = system["ss_id"]
+        lat = system["latitude_rounded"]
+        lon = system["longitude_rounded"]
+        kwp = system["kWp"]
+        tft_df = download_ukpv_system(ss_id, kwp, year=2023)
+        pvgis_format_df = prepare_ukpv_as_pvgis(tft_df, weather_df, ss_id, lat, lon)
+        pvgis_format_df["ss_id"] = ss_id  # add ss_id for reference
+        tft_df = add_features("London", lat, lon, df=pvgis_format_df)
+        
+        df_all.append(tft_df)
+    df_combined = pd.concat(df_all, ignore_index=True)
+    logging.info(df_combined.head())
+    print(f"Shape: {df_combined.shape}")
+   
+    df_combined.to_parquet(f"{file_config.processed_data_dir}/ukpv_london_tft.parquet", index=False)
+    logging.info(f"Saved: {df_combined.shape}")
+    logging.info(f"\n{df_combined.head()}")
+
