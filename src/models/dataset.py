@@ -9,8 +9,8 @@ def split_data(
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
 
     train_data = data[data["time"].dt.year <= 2021]
-    val_data = data[data["time"].dt.year <= 2022]
-    test_data = data[data["time"].dt.year <= 2023]
+    val_data = data[data["time"].dt.year == 2022]
+    test_data = data[data["time"].dt.year == 2023]
 
     return train_data, val_data, test_data
 
@@ -26,7 +26,7 @@ def create_dataset(data:pd.DataFrame, max_encoder_length:int, max_prediction_len
         data, # the input DataFrame with features
         time_idx = "time_idx", # column representing the time index per location
         target = "P_norm",# the target variable to predict (normalized power output)
-        group_ids=["location"],# column(s) that identify different time series (locations in this case)
+        group_ids=["series_id"],# column(s) that identify different time series (locations in this case)
         max_encoder_length = max_encoder_length, # the length of the input sequence for the encoder
         max_prediction_length = max_prediction_length, # the length of the output sequence to predict
         static_categoricals = ["location"], # categorical features that do not change over time (location names)
@@ -40,25 +40,26 @@ def create_dataset(data:pd.DataFrame, max_encoder_length:int, max_prediction_len
         lags={
         "P_norm": [24, 168]
         }, # specify lag features for the target variable (e.g., 24 hours and 168 hours for daily and weekly patterns)
-        target_normalizer = GroupNormalizer(groups=["location"]), # normalize the target variable per location to help model training
+        target_normalizer = GroupNormalizer(groups=["series_id"]), # normalize the target variable per time series (location) or ssid for households to help with training stability
         add_relative_time_idx=True,
         add_target_scales=True,
         add_encoder_length="auto"
     )
     return training
 
-def dataloader(dataset: TimeSeriesDataSet, batch_size:int, train:bool=True) -> TimeSeriesDataSet.to_dataloader:
+def dataloader(dataset: TimeSeriesDataSet, batch_size:int, train:bool=True, num_workers:int=8) -> TimeSeriesDataSet.to_dataloader:
     """Create a dataloader from a TimeSeriesDataSet for model training or evaluation.
     Args:
         dataset (TimeSeriesDataSet): The input TimeSeriesDataSet to create the dataloader from.
         batch_size (int): The batch size to use for the dataloader.
         train (bool): Whether to create a dataloader for training (with shuffling) or evaluation (without shuffling).
+        num_workers (int): The number of worker processes to use for data loading.
     Returns:
         DataLoader: A PyTorch DataLoader that can be used for model training or evaluation."""
     return dataset.to_dataloader(
         train=train,
         batch_size=batch_size,
-        num_workers=8,
+        num_workers=num_workers,
         persistent_workers=True
     )
 

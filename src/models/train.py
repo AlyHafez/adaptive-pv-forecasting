@@ -2,7 +2,7 @@ from lightning.pytorch import Trainer # type: ignore[import]
 from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint # type: ignore[import]
 from lightning.pytorch.loggers import WandbLogger   # type: ignore[import]
 import logging # type: ignore[import]
-import wandb# type: ignore[import]
+import wandb# type: ignore
 from dotenv import load_dotenv# type: ignore[import]
 from pytorch_forecasting import TemporalFusionTransformer, TimeSeriesDataSet# type: ignore[import]
 import os# type: ignore[import]
@@ -11,7 +11,6 @@ from src.models.tft import create_tft# type: ignore[import]
 from src.models.dataset import split_data, create_dataset, dataloader
 from src.config import file_config, tft_config
 from src.utils.utils import wandb_login
-
 logging.basicConfig(level=logging.INFO)
 
 
@@ -29,7 +28,7 @@ def train(epochs: int, accelerator: str = "auto", gradient_clip_val: float = 0.9
     tft = create_tft(training_dataset)
     logging.info(f"Number of parameters in model: {tft.size()/1e6:.2f} million")
     
-    early_stop = EarlyStopping(monitor="val_loss", min_delta=1e-4, patience=10, mode="min")
+    early_stop = EarlyStopping(monitor="val_loss", min_delta=1e-3, patience=5, mode="min")
     checkpoint = ModelCheckpoint(
         monitor="val_loss",
         dirpath=f"{file_config.models_dir}/tft",
@@ -55,4 +54,4 @@ def train(epochs: int, accelerator: str = "auto", gradient_clip_val: float = 0.9
 if __name__ == "__main__":
     wandb_login()
     os.makedirs(f"{file_config.models_dir}/tft", exist_ok=True)
-    train(epochs=50, accelerator="auto", gradient_clip_val=tft_config.grad_clip_val)
+    train(epochs=50, accelerator="auto", gradient_clip_val=tft_config.grad_clip_val) 

@@ -47,9 +47,9 @@ if __name__ == "__main__":
     validation_dataset = TimeSeriesDataSet.from_dataset(training_dataset, val_data, stop_randomization=True)
     test_dataset = TimeSeriesDataSet.from_dataset(training_dataset, test_data, stop_randomization=True)
     
-    train_dataloader = dataloader(training_dataset, batch_size=tft_config.train_batch_size, train=True)
-    val_dataloader = dataloader(validation_dataset, batch_size=tft_config.val_batch_size, train=False)
-    test_dataloader = dataloader(test_dataset, batch_size=tft_config.test_batch_size, train=False)
+    train_dataloader = dataloader(training_dataset, batch_size=tft_config.train_batch_size, train=True, num_workers=tft_config.num_workers)
+    val_dataloader = dataloader(validation_dataset, batch_size=tft_config.val_batch_size, train=False, num_workers=tft_config.num_workers)
+    test_dataloader = dataloader(test_dataset, batch_size=tft_config.test_batch_size, train=False, num_workers=tft_config.num_workers)
     tft = create_tft(training_dataset)
     trainer = create_network()
     logging.info(f"number of parameters in model: {tft.size()/1e6:.2f} million")
