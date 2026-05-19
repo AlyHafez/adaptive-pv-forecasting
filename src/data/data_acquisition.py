@@ -72,7 +72,7 @@ def download_ukpv_system(ss_id: int, year: int = 2023) -> pd.DataFrame:
     df["datetime_GMT"] = pd.to_datetime(df["datetime_GMT"])
     df = df.set_index("datetime_GMT")
     df = df["generation_Wh"].resample("1h").sum().reset_index()
-    df["power_kw"] = df["generation_Wh"] / 1000.0
+    df["power_kw"] = df["generation_Wh"] / 4000.0
     
     logging.info(f"Downloaded {len(df)} hourly records for system {ss_id}")
     return df
