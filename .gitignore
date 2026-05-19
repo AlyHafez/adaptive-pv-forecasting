@@ -146,7 +146,7 @@ activemq-data/
 
 # SageMath parsed files
 *.sage.py
-
+wandb/
 # Environments
 .env
 .envrc
@@ -236,3 +236,6 @@ venv/
 *.pt
 *.pth
 *.ckpt
+
+#log files
+lightning_logs/
