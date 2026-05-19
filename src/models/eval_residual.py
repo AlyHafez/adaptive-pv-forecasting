@@ -92,7 +92,7 @@ if __name__ == "__main__":
     
     df = pd.read_parquet(f"{file_config.processed_data_dir}/ukpv_london_tft.parquet")
     last_date = df["time"].max()
-    test_df = df[(df["time"].dt.month == 7) & (df["time"].dt.day <= 7)] 
+    test_df = df[(df["time"].dt.month == 12) & (df["time"].dt.day <= 12)] 
     
     predictions_df = pd.read_csv(f"{file_config.results_dir}/predictions_ukpv.csv")
     # take last 7 days of predictions
