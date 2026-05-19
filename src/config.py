@@ -43,6 +43,7 @@ class TFTConfig:
     grad_clip_val:float = 0.9
     seed:int = 42
     lr:float = 0.01
+    num_workers:int = 4
 
 
 class ResidualsConfig:
