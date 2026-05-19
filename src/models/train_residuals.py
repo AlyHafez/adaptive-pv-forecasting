@@ -106,7 +106,7 @@ if __name__ == "__main__":
     last_date = df["time"].max()
     # In train_residuals.py __main__
     train_df = df[df["time"].dt.month != 12] 
-    test_df = df[(df["time"].dt.month == 12) & (df["time"].dt.day <= 12)]  # first 7 days of December
+    test_df = df[(df["time"].dt.month == 12) & (df["time"].dt.day <= 7)]  # first 7 days of December
     
     predictions_df = pd.read_csv(f"{file_config.results_dir}/predictions_ukpv.csv")
     train_predictions = predictions_df["median"].values[:len(train_df)]
