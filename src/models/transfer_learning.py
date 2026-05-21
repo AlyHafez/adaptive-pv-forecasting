@@ -22,6 +22,8 @@ def transfer_learning(data: pd.DataFrame, checkpoint_path: str) -> TemporalFusio
         TemporalFusionTransformer: The fine-tuned model ready for evaluation."""
     
     train_data, val_data, _ = split_data(data)
+    train_data = train_data.reset_index(drop=True)
+    val_data = val_data.reset_index(drop=True)
     training_dataset = create_dataset(train_data, tft_config.max_encoder_length, tft_config.max_prediction_length)
     validation_dataset = TimeSeriesDataSet.from_dataset(training_dataset, val_data, stop_randomization=True)
     
