@@ -16,9 +16,8 @@ def split_data(
 def split_household_data(
         data:pd.DataFrame
         ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    split_idx = int(len(data) * 0.8)
-    train_data = data.iloc[:split_idx]
-    val_data = data.iloc[split_idx:]
+    train_data = data[data["time"].dt.month <= 10].reset_index(drop=True)
+    val_data = data[data["time"].dt.month > 10].reset_index(drop=True)
     return train_data, val_data
 
 def create_dataset(data:pd.DataFrame, max_encoder_length:int, max_prediction_length:int) -> TimeSeriesDataSet:
@@ -73,13 +72,13 @@ def dataloader(dataset: TimeSeriesDataSet, batch_size:int, train:bool=True, num_
 if __name__ == "__main__":
     data = pd.read_parquet(file_config.data_path)
     train_data, val_data, test_data = split_data(data)
-    print(f"Train: {train_data.shape}, Val: {val_data.shape}, Test: {test_data.shape}")
+    logging.info(f"Train: {train_data.shape}, Val: {val_data.shape}, Test: {test_data.shape}")
     max_encoder_length = tft_config.max_encoder_length# use the past week of data
     max_prediction_length = tft_config.max_prediction_length # predict the next 24 hours
     training_dataset = create_dataset(train_data, max_encoder_length, max_prediction_length)
     validation_dataset = TimeSeriesDataSet.from_dataset(training_dataset, val_data, stop_randomization=True)
     test_dataset = TimeSeriesDataSet.from_dataset(training_dataset, test_data, stop_randomization=True)
-    print(f"Training dataset: {len(training_dataset)}, Validation dataset: {len(validation_dataset)}, Test dataset: {len(test_dataset)}")
+    logging.info(f"Training dataset: {len(training_dataset)}, Validation dataset: {len(validation_dataset)}, Test dataset: {len(test_dataset)}")
 
     train_dataloader = training_dataset.to_dataloader(
         train=True,
