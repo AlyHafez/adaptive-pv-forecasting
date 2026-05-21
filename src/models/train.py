@@ -31,8 +31,8 @@ def train(epochs: int, accelerator: str = "auto", gradient_clip_val: float = 0.9
     early_stop = EarlyStopping(monitor="val_loss", min_delta=1e-3, patience=5, mode="min")
     checkpoint = ModelCheckpoint(
         monitor="val_loss",
-        dirpath=f"{file_config.models_dir}/tft",
-        filename="tft-best-model",
+        dirpath=f"{file_config.tft_models_dir}",
+        filename=file_config.tft_checkpoint_name,
         save_top_k=1,
         mode="min"
     )

@@ -1,11 +1,13 @@
 import pandas as pd # type: ignore[import]
 import logging # type: ignore[import]
-
+import wandb # type: ignore
+import sys
 from pytorch_forecasting import TemporalFusionTransformer, TimeSeriesDataSet # type: ignore[import]
 from src.models.dataset import split_data, create_dataset, dataloader
 from src.config import file_config, tft_config
 from src.utils.utils import wandb_login
 
+logging.basicConfig(level=logging.INFO)
 def load_model(checkpoint_path: str) -> TemporalFusionTransformer:
     """Load a trained Temporal Fusion Transformer model from a checkpoint.
     Args:
@@ -28,12 +30,20 @@ def evaluate_tft(best_model: TemporalFusionTransformer, test_dataloader: TimeSer
         return_x=True, return_y=True, return_index=True,
         trainer_kwargs=dict(accelerator="auto",devices=1),
     )
+    interpretation = best_model.interpret_output(predictions.output, reduction="mean")
+    fig = best_model.plot_interpretation(interpretation)
+    wandb.log({"interpretation": fig}) #type:ignore
+
     return predictions
 
 
 if __name__ == "__main__":
-    import sys
     
+    wandb_login()
+    wandb.init(project="pv-forecasting", name="feature-interpretation")  # type: ignore
+
+
+
     # check if running on PVGIS test set or UK_PV
     mode = sys.argv[1] if len(sys.argv) > 1 else "pvgis"
     
@@ -42,7 +52,7 @@ if __name__ == "__main__":
     train_data, val_data, _ = split_data(data)
     training_dataset = create_dataset(train_data, tft_config.max_encoder_length, tft_config.max_prediction_length)
     
-    checkpoint_path = f"{file_config.models_dir}/tft/tft-best-model.ckpt"
+    checkpoint_path = f"{file_config.tft_checkpoint_path}"
     best_model = load_model(checkpoint_path)
     
     if mode == "pvgis":
@@ -88,3 +98,4 @@ if __name__ == "__main__":
             "upper": predictions.output[:, :, 2].cpu().numpy().flatten(),
         }).to_csv(f"{file_config.results_dir}/predictions_ukpv.csv", index=False)
         logging.info("UK_PV predictions saved")
+        wandb.finish()# type: ignore
