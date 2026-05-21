@@ -35,7 +35,7 @@ class FileConfig:
         {"lat": 59.3,  "lon": 18.1,  "name": "Stockholm"},
         {"lat": 45.7,  "lon": 4.8,   "name": "Lyon"},
     ])
-
+@dataclass
 class TFTConfig:
     """TFT Model hyperparameters and training settings."""
     
@@ -62,7 +62,7 @@ class TFTConfig:
         "encoder_variable_selection",
     ])
 
-
+@dataclass
 class ResidualsConfig:
     """Residuals model hyperparameters and training settings."""
     batch_size: int = 32
