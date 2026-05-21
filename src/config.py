@@ -54,6 +54,7 @@ class TFTConfig:
     num_workers:int = 4
     fine_tune_lr:float = 0.001
     fine_tune_epochs:int = 20
+    finetune_batch_size:int = 256
     layers_to_unfreeze: list[str] = field(default_factory=lambda: [
         "output_layer",
         "pre_output_gate_norm",

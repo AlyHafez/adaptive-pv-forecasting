@@ -26,8 +26,8 @@ def transfer_learning(data: pd.DataFrame, checkpoint_path: str) -> TemporalFusio
     training_dataset = create_dataset(train_data, tft_config.max_encoder_length, tft_config.max_prediction_length)
     validation_dataset = TimeSeriesDataSet.from_dataset(training_dataset, val_data, stop_randomization=True)
     
-    train_dataloader = dataloader(training_dataset, batch_size=tft_config.train_batch_size, train=True)
-    val_dataloader = dataloader(validation_dataset, batch_size=tft_config.val_batch_size, train=False)
+    train_dataloader = dataloader(training_dataset, batch_size=tft_config.finetune_batch_size, train=True)
+    val_dataloader = dataloader(validation_dataset, batch_size=tft_config.finetune_batch_size, train=False)
     
     
     tft = load_model(checkpoint_path)
