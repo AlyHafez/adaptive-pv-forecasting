@@ -13,6 +13,13 @@ def split_data(
     test_data = data[data["time"].dt.year == 2023]
 
     return train_data, val_data, test_data
+def split_household_data(
+        data:pd.DataFrame
+        ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    split_idx = int(len(data) * 0.8)
+    train_data = data.iloc[:split_idx]
+    val_data = data.iloc[split_idx:]
+    return train_data, val_data
 
 def create_dataset(data:pd.DataFrame, max_encoder_length:int, max_prediction_length:int) -> TimeSeriesDataSet:
     """Creare a TimeSeriesDataSet for training the Temporal Fusion Transformer model.

@@ -2,7 +2,7 @@ from pytorch_forecasting import TemporalFusionTransformer, TimeSeriesDataSet # t
 from lightning.pytorch import Trainer # type: ignore[import]
 from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint # type: ignore[import]
 from lightning.pytorch.loggers import WandbLogger   # type: ignore[import]
-from src.models.dataset import split_data, create_dataset, dataloader
+from src.models.dataset import split_data, create_dataset, dataloader, split_household_data
 from src.config import file_config, tft_config
 from src.utils.utils import wandb_login
 from src.data.data_processing import load_data
@@ -21,9 +21,8 @@ def transfer_learning(data: pd.DataFrame, checkpoint_path: str) -> TemporalFusio
     Returns:
         TemporalFusionTransformer: The fine-tuned model ready for evaluation."""
     
-    train_data, val_data, _ = split_data(data)
-    train_data = train_data.reset_index(drop=True)
-    val_data = val_data.reset_index(drop=True)
+    train_data, val_data= split_household_data(data)
+
     training_dataset = create_dataset(train_data, tft_config.max_encoder_length, tft_config.max_prediction_length)
     validation_dataset = TimeSeriesDataSet.from_dataset(training_dataset, val_data, stop_randomization=True)
     
