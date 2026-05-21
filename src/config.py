@@ -14,8 +14,15 @@ class FileConfig:
     raw_data_dir: str = os.path.join(base_dir, "data/raw")
     processed_data_dir: str = os.path.join(base_dir, "data/processed")
     data_path: str = os.path.join(processed_data_dir, "pvgis_all.parquet")
+    fine_tuning_households:str = os.path.join(processed_data_dir,"ukpv_london_tft.parquet")
+    test_set:str = os.path.join(processed_data_dir, "ukpv_london_test_household.parquet")
     results_dir: str = os.path.join(base_dir, "results")
     models_dir: str = os.path.join(results_dir, "models")
+    tft_models_dir: str = os.path.join(models_dir, "tft")
+    tft_checkpoint_name: str = "tft-best-model.ckpt"
+    tft_checkpoint_path: str = os.path.join(tft_models_dir, tft_checkpoint_name)
+    fine_tuned_name: str = "tft-finetuned-model.ckpt"
+    fine_tuned_path: str = os.path.join(tft_models_dir, fine_tuned_name)
     locations: list[dict[str, str | float]] = field(default_factory=lambda: [
         {"lat": 51.5,  "lon": -0.1,  "name": "London"},
         {"lat": 48.8,  "lon": 2.3,   "name": "Paris"},
@@ -31,6 +38,7 @@ class FileConfig:
 
 class TFTConfig:
     """TFT Model hyperparameters and training settings."""
+    
     train_batch_size: int = 1024
     val_batch_size: int = 1024
     test_batch_size: int = 1024
@@ -44,6 +52,15 @@ class TFTConfig:
     seed:int = 42
     lr:float = 0.01
     num_workers:int = 4
+    fine_tune_lr:float = 0.001
+    fine_tune_epochs:int = 20
+    layers_to_unfreeze: list[str] = field(default_factory=lambda: [
+        "output_layer",
+        "pre_output_gate_norm",
+        "static_enrichment",
+        "decoder_variable_selection",
+        "encoder_variable_selection",
+    ])
 
 
 class ResidualsConfig:
@@ -61,3 +78,4 @@ class ResidualsConfig:
 file_config = FileConfig()
 tft_config = TFTConfig()
 residuals_config = ResidualsConfig()
+
