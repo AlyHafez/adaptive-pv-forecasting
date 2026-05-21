@@ -1,7 +1,8 @@
 import pandas as pd  # type: ignore[import]
 import os
+import logging
 from src.config import file_config
-
+logging.basicConfig(level=logging.INFO)
 def clean_data(name:str)-> pd.DataFrame:
     os.makedirs(file_config.processed_data_dir, exist_ok=True)
     
@@ -29,8 +30,10 @@ def clean_data(name:str)-> pd.DataFrame:
 
         
 
-
-
+def load_data(path:str)->pd.DataFrame:
+    df = pd.read_parquet(path)
+    logging.info(f"Loaded data from {path}: {df.shape}")
+    return df 
     
 if __name__ == "__main__":
     for loc in file_config.locations:

@@ -119,7 +119,7 @@ def download_openmeteo(lat: float, lon: float, start: str = "2023-01-01", end: s
     Returns:
         pd.DataFrame: Hourly weather data."""
     url = "https://archive-api.open-meteo.com/v1/archive"
-    params = {
+    params: dict[str, str | int | float] = {
         "latitude": lat,
         "longitude": lon,
         "start_date": start,

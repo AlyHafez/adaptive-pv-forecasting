@@ -6,7 +6,7 @@ from src.data.data_acquisition import download_openmeteo, download_ukpv_system, 
 from src.data.data_processing import clean_data
 from src.config import file_config 
 logging.basicConfig(level=logging.INFO)
-def add_features(location: str, lat: float, lon: float, df: pd.DataFrame = None) -> pd.DataFrame:
+def add_features(location: str, lat: float, lon: float, df: pd.DataFrame | None =  None) -> pd.DataFrame:
     
     if df is None:
         df = clean_data(location)  # original PVGIS flow
