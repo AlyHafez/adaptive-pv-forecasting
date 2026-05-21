@@ -44,7 +44,7 @@ def transfer_learning(data: pd.DataFrame, checkpoint_path: str) -> TemporalFusio
     tft.hparams.learning_rate = tft_config.fine_tune_lr
 
 
-    early_stop = EarlyStopping(monitor="val_loss", min_delta=1e-3, patience=3, mode="min")
+    early_stop = EarlyStopping(monitor="val_loss", min_delta=1e-3, patience=5, mode="min")
     checkpoint = ModelCheckpoint(
         monitor="val_loss",
         dirpath=f"{file_config.tft_models_dir}",
