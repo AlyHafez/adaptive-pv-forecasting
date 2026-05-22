@@ -52,7 +52,7 @@ if __name__ == "__main__":
     train_data, val_data, _ = split_data(data)
     training_dataset = create_dataset(train_data, tft_config.max_encoder_length, tft_config.max_prediction_length)
     
-    checkpoint_path = f"{file_config.tft_checkpoint_path}"
+    checkpoint_path = f"{file_config.fine_tuned_path}"
     best_model = load_model(checkpoint_path)
     
     if mode == "pvgis":
@@ -72,8 +72,8 @@ if __name__ == "__main__":
 
     elif mode == "ukpv":
         # UK_PV 37-day inference
-        ukpv_df = pd.read_parquet(f"{file_config.processed_data_dir}/ukpv_london_tft.parquet")
-        
+        ukpv_df = pd.read_parquet(f"{file_config.test_set}")
+        ukpv_df["series_id"] = ukpv_df["location"]
         # last 37 days
         last_date = ukpv_df["time"].max()
         ukpv_37 = ukpv_df.reset_index(drop=True)
