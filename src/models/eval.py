@@ -77,7 +77,7 @@ if __name__ == "__main__":
         ukpv_df = pd.read_parquet(f"{file_config.test_set}")
         ukpv_df["series_id"] = ukpv_df["location"]
         # last 37 days
-        last_date = ukpv_df["time"].max()
+
         ukpv_37 = ukpv_df.reset_index(drop=True)
         ukpv_37["time_idx"] = range(len(ukpv_37))
         
@@ -99,5 +99,5 @@ if __name__ == "__main__":
             "median": quantiles[:, :, 1].cpu().numpy().flatten(),
             "lower": quantiles[:, :, 0].cpu().numpy().flatten(),
             "upper": quantiles[:, :, 2].cpu().numpy().flatten(),
-        }).to_csv(f"{file_config.results_dir}/predictions_tft.csv", index=False)
+        }).to_csv(f"{file_config.results_dir}/predictions_ukpv.csv", index=False)
         wandb.finish()# type: ignore

@@ -90,13 +90,15 @@ if __name__ == "__main__":
     wandb_login()
     wandb.init(project="pv-forecasting", name="residual-evaluation")
     
-    df = pd.read_parquet(f"{file_config.processed_data_dir}/ukpv_london_tft.parquet")
-    last_date = df["time"].max()
-    test_df = df[(df["time"].dt.month == 12) & (df["time"].dt.day <= 7)] 
+    df = pd.read_parquet(f"{file_config.test_set}")
+
+    test_df = df[(df["time"].dt.month >=10) & (df["time"].dt.day <= 7)] 
     
     predictions_df = pd.read_csv(f"{file_config.results_dir}/predictions_ukpv.csv")
-    # take last 7 days of predictions
-    test_predictions = predictions_df["median"].values[-len(test_df):]
+    
+    n_train = len(df[df["time"].dt.month <= 9])
+    test_predictions = predictions_df["median"].values[n_train:n_train + len(test_df)]
+
     
     model = load_residual_model()
     results = evaluate_residuals(test_df, test_predictions, model)
