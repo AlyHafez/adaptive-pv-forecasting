@@ -47,7 +47,7 @@ def create_dataset(data:pd.DataFrame, max_encoder_length:int, max_prediction_len
         "P_norm": [24, 168]
         }, # specify lag features for the target variable (e.g., 24 hours and 168 hours for daily and weekly patterns)
         target_normalizer = None,
-        add_target_scales=True,
+        add_target_scales=False,
         add_encoder_length="auto"
     )
     return training
