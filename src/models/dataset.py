@@ -43,9 +43,9 @@ def create_dataset(data:pd.DataFrame, max_encoder_length:int, max_prediction_len
             "Gr(i)", "H_sun","T2m", "WS10m", "daylight"  
             ],# real-valued features that are known in advance and vary over time (time-based features and weather conditions)
         time_varying_unknown_reals = ["P_norm"], # real-valued features that are not known in advance and vary over time (the target variable)
-        lags={
-        "P_norm": [24, 168]
-        }, # specify lag features for the target variable (e.g., 24 hours and 168 hours for daily and weekly patterns)
+       # lags={
+        #"P_norm": [24, 168]
+        #}, # specify lag features for the target variable (e.g., 24 hours and 168 hours for daily and weekly patterns)
         target_normalizer = TorchNormalizer(method="identity", center=False),
         add_target_scales=False,
         add_encoder_length="auto"
