@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt # type: ignore[import]
 from src.config import file_config, residuals_config
 from src.utils.utils import wandb_login
 from src.models.residual_corrector import ResidualCorrector
-from src.models.train_residuals import create_dataset, dataloader
+from src.models.train_residuals import rolling_window_evaluation
 from src.evaluation.metrics import compute_metrics
 wandb.init = wandb.init  # type: ignore
 
@@ -81,56 +81,50 @@ def plot_predictions(results: pd.DataFrame, save_path: str, naive_pred: np.ndarr
     logging.info(f"Plot saved to {save_path}")
 
 
-def naive_baseline(test_df: pd.DataFrame) -> np.ndarray:
-    """Persistence baseline — repeat same hour from 24h ago."""
-    return test_df["P_norm"].shift(24).fillna(0).values
+
+def naive_baseline(results: pd.DataFrame) -> np.ndarray:
+    """return persistent naive baseline"""
+    return results["actual"].shift(24).fillna(0).values
 
 
 if __name__ == "__main__":
     wandb_login()
     wandb.init(project="pv-forecasting", name="residual-evaluation")
     
-    df = pd.read_parquet(f"{file_config.test_set}")
-
-    test_df = df[(df["time"].dt.month >=10)] 
-    
+    df = pd.read_parquet(file_config.test_set)
     predictions_df = pd.read_csv(f"{file_config.results_dir}/predictions_ukpv.csv")
-
-    n_train = len(df[df["time"].dt.month <= 9])
-    test_predictions = predictions_df["median"].values[n_train:n_train + len(test_df)]
-
     
-    model = load_residual_model()
-    results = evaluate_residuals(test_df, test_predictions, model)
+    # rolling window evaluation
+
+    results = rolling_window_evaluation(df, predictions_df, window_days=30, epochs=50)
+    results.to_csv(f"{file_config.results_dir}/predictions_rolling.csv", index=False)
+    
+    # metrics
     tft_metrics = compute_metrics(results["actual"].values, results["tft_pred"].values)
     corrected_metrics = compute_metrics(results["actual"].values, results["corrected_pred"].values)
+    naive_pred = naive_baseline(results)  
+    naive_metrics = compute_metrics(results["actual"].values, naive_pred)
     
     wandb.log({
         "tft_mae": tft_metrics["MAE"],
         "tft_rmse": tft_metrics["RMSE"],
         "corrected_mae": corrected_metrics["MAE"],
         "corrected_rmse": corrected_metrics["RMSE"],
+        "naive_mae": naive_metrics["MAE"],
+        "naive_rmse": naive_metrics["RMSE"],
         "mae_improvement": tft_metrics["MAE"] - corrected_metrics["MAE"],
         "rmse_improvement": tft_metrics["RMSE"] - corrected_metrics["RMSE"],
     })
-    logging.info(f"TFT — MAE: {tft_metrics['MAE']:.4f}, RMSE: {tft_metrics['RMSE']:.4f}")
-    logging.info(f"Corrected — MAE: {corrected_metrics['MAE']:.4f}, RMSE: {corrected_metrics['RMSE']:.4f}")
-    logging.info(f"Improvement — MAE: {tft_metrics['MAE'] - corrected_metrics['MAE']:.4f}, RMSE: {tft_metrics['RMSE'] - corrected_metrics['RMSE']:.4f}")
     
+    logging.info(f"Naive     — MAE: {naive_metrics['MAE']:.4f}, RMSE: {naive_metrics['RMSE']:.4f}")
+    logging.info(f"TFT       — MAE: {tft_metrics['MAE']:.4f}, RMSE: {tft_metrics['RMSE']:.4f}")
+    logging.info(f"Corrected — MAE: {corrected_metrics['MAE']:.4f}, RMSE: {corrected_metrics['RMSE']:.4f}")
+    
+    pd.DataFrame([naive_metrics]).to_csv(f"{file_config.results_dir}/metrics_naive.csv", index=False)
     pd.DataFrame([tft_metrics]).to_csv(f"{file_config.results_dir}/metrics_tft_ukpv.csv", index=False)
     pd.DataFrame([corrected_metrics]).to_csv(f"{file_config.results_dir}/metrics_residual_corrector.csv", index=False)
-    results.to_csv(f"{file_config.results_dir}/predictions_residual_corrector.csv", index=False)
     
-
-    naive_pred = naive_baseline(test_df)
-    naive_metrics = compute_metrics(results["actual"].values, naive_pred)
     plot_predictions(results, f"{file_config.results_dir}/predictions_plot.png", naive_pred=naive_pred)
-
-    wandb.log({
-        "naive_mae": naive_metrics["MAE"],
-        "naive_rmse": naive_metrics["RMSE"],
-    })
-    logging.info(f"Naive — MAE: {naive_metrics['MAE']:.4f}, RMSE: {naive_metrics['RMSE']:.4f}")
-    pd.DataFrame([naive_metrics]).to_csv(f"{file_config.results_dir}/metrics_naive.csv", index=False)
+    
     wandb.finish()
     logging.info("Evaluation complete")
