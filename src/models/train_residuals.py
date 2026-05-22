@@ -101,7 +101,7 @@ if __name__ == "__main__":
 
     
     
-    df = pd.read_parquet(f"{file_config.processed_data_dir}/ukpv_london_tft.parquet")
+    df = pd.read_parquet(f"{file_config.test_set}")
     
     last_date = df["time"].max()
     # In train_residuals.py __main__
