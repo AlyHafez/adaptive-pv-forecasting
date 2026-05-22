@@ -46,8 +46,7 @@ def create_dataset(data:pd.DataFrame, max_encoder_length:int, max_prediction_len
         lags={
         "P_norm": [24, 168]
         }, # specify lag features for the target variable (e.g., 24 hours and 168 hours for daily and weekly patterns)
-        target_normalizer = GroupNormalizer(groups=["series_id"]), # normalize the target variable per time series (location) or ssid for households to help with training stability
-        add_relative_time_idx=True,
+        target_normalizer = None,
         add_target_scales=True,
         add_encoder_length="auto"
     )
