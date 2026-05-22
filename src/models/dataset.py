@@ -1,7 +1,7 @@
 import pandas as pd # type: ignore[import]
 import logging
 from pytorch_forecasting import TimeSeriesDataSet # type: ignore[import]
-from pytorch_forecasting.data import GroupNormalizer # type: ignore[import]
+from pytorch_forecasting.data import TorchNormalizer # type: ignore[import]
 from src.config import file_config, tft_config 
 logging.basicConfig(level=logging.INFO)
 def split_data(
@@ -46,7 +46,7 @@ def create_dataset(data:pd.DataFrame, max_encoder_length:int, max_prediction_len
         lags={
         "P_norm": [24, 168]
         }, # specify lag features for the target variable (e.g., 24 hours and 168 hours for daily and weekly patterns)
-        target_normalizer = None,
+        target_normalizer = TorchNormalizer(method="identity", center=False),
         add_target_scales=False,
         add_encoder_length="auto"
     )
