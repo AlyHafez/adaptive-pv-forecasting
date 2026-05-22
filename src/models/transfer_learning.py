@@ -48,7 +48,7 @@ def transfer_learning(data: pd.DataFrame, checkpoint_path: str) -> TemporalFusio
     checkpoint = ModelCheckpoint(
         monitor="val_loss",
         dirpath=f"{file_config.tft_models_dir}",
-        filename=file_config.fine_tuned_name,
+        filename="tft-finetuned-model",
         save_top_k=1,
         mode="min"
     )

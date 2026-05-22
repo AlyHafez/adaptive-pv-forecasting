@@ -92,10 +92,10 @@ if __name__ == "__main__":
     
     df = pd.read_parquet(f"{file_config.test_set}")
 
-    test_df = df[(df["time"].dt.month >=10) & (df["time"].dt.day <= 7)] 
+    test_df = df[(df["time"].dt.month >=10)] 
     
     predictions_df = pd.read_csv(f"{file_config.results_dir}/predictions_ukpv.csv")
-    
+
     n_train = len(df[df["time"].dt.month <= 9])
     test_predictions = predictions_df["median"].values[n_train:n_train + len(test_df)]
 

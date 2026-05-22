@@ -96,6 +96,63 @@ def train_residuals(
     logging.info(f"Training complete — Best loss: {best_loss:.6f}")
     return model
 
+def rolling_window_evaluation(
+    df: pd.DataFrame,
+    predictions_df: pd.DataFrame,
+    window_days: int = 30,
+    epochs: int = 50
+) -> pd.DataFrame:
+    """Rolling window evaluation — retrain MLP each day on last window_days of residuals."""
+    all_results = []
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    for test_day in pd.date_range("2023-10-01", "2023-12-31", freq="D"):
+        # get window before test day
+        window_start = test_day - pd.Timedelta(days=window_days)
+        window_df = df[
+            (df["time"] >= window_start) & (df["time"] < test_day)
+        ].reset_index(drop=True)
+
+        if len(window_df) == 0:
+            continue
+
+        # get TFT predictions for window using positional index
+        window_mask = (df["time"] >= window_start) & (df["time"] < test_day)
+        window_idx = df[window_mask].index
+        window_predictions = predictions_df["median"].values[window_idx[0]:window_idx[-1]+1]
+
+        # retrain MLP on window — no wandb logging per iteration
+        set_seed(residuals_config.seed)
+        dataset = create_dataset(window_df, window_predictions)
+        train_loader = dataloader(dataset, batch_size=residuals_config.batch_size, train=True)
+        model = ResidualCorrector(input_size=7, hidden_size=residuals_config.hidden_size)
+        optimizer = torch.optim.Adam(model.parameters(), lr=residuals_config.lr)
+        criterion = nn.MSELoss()
+        model = model.to(device)
+        model.train()
+        for epoch in range(epochs):
+            for X_batch, y_batch in train_loader:
+                X_batch, y_batch = X_batch.to(device), y_batch.to(device)
+                optimizer.zero_grad()
+                loss = criterion(model(X_batch).squeeze(), y_batch)
+                loss.backward()
+                optimizer.step()
+
+        # predict next 24h
+        test_mask = df["time"].dt.date == test_day.date()
+        test_day_df = df[test_mask].reset_index(drop=True)
+        test_idx = df[test_mask].index
+        test_preds = predictions_df["median"].values[test_idx[0]:test_idx[-1]+1]
+
+        from src.models.eval_residual import evaluate_residuals
+        day_results = evaluate_residuals(test_day_df, test_preds, model)
+        day_results["date"] = test_day
+        all_results.append(day_results)
+        logging.info(f"Processed {test_day.date()}")
+
+    return pd.concat(all_results, ignore_index=True)
+    
+
 
 if __name__ == "__main__":
 

@@ -32,7 +32,7 @@ def train(epochs: int, accelerator: str = "auto", gradient_clip_val: float = 0.9
     checkpoint = ModelCheckpoint(
         monitor="val_loss",
         dirpath=f"{file_config.tft_models_dir}",
-        filename=file_config.tft_checkpoint_name,
+        filename="tft-best-model",
         save_top_k=1,
         mode="min"
     )
