@@ -26,7 +26,7 @@ def evaluate_tft(best_model: TemporalFusionTransformer, test_dataloader: TimeSer
     
 
     predictions = best_model.predict(
-        test_dataloader, mode="quantiles",
+        test_dataloader, mode="raw",
         return_x=True, return_y=True, return_index=True,
         trainer_kwargs=dict(accelerator="auto",devices=1),
     )
@@ -61,12 +61,12 @@ if __name__ == "__main__":
         test_dataset = TimeSeriesDataSet.from_dataset(training_dataset, test_data, stop_randomization=True)
         test_dataloader = dataloader(test_dataset, batch_size=tft_config.test_batch_size, train=False)
         predictions = evaluate_tft(best_model, test_dataloader)
-        
+        quantiles = predictions.output.prediction
         pd.DataFrame({
             "actual": predictions.y[0].cpu().numpy().flatten(),
-            "median": predictions.output[:, :, 1].cpu().numpy().flatten(),
-            "lower": predictions.output[:, :, 0].cpu().numpy().flatten(),
-            "upper": predictions.output[:, :, 2].cpu().numpy().flatten(),
+            "median": quantiles[:, :, 1].cpu().numpy().flatten(),
+            "lower": quantiles[:, :, 0].cpu().numpy().flatten(),
+            "upper": quantiles[:, :, 2].cpu().numpy().flatten(),
         }).to_csv(f"{file_config.results_dir}/predictions_tft.csv", index=False)
         logging.info("PVGIS predictions saved")
 
