@@ -199,7 +199,7 @@ def rolling_window_evaluation(
         test_day_df = df[test_mask].reset_index(drop=True)
         test_preds = predictions_df[
             pd.to_datetime(predictions_df["time"]).dt.date == test_day.date()
-        ]["median"].values
+        ][["median", "lower", "upper"]].values 
 
         if len(test_preds) == 0:
             logging.warning(f"No predictions for {test_day.date()}, skipping")
