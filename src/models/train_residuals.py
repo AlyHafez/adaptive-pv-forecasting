@@ -67,16 +67,25 @@ def evaluate_residuals(
     with torch.no_grad():
         correction = model(X_tensor).squeeze().cpu().numpy()
     
-    corrected = pred_median + correction
+    corrected_median = pred_median + correction
+    corrected_upper = pred_upper + correction
+    corrected_lower = pred_lower + correction
+    
     actuals = test_df["P_norm"].values
     
     results = pd.DataFrame({
         "actual": actuals,
         "tft_pred": pred_median,
-        "corrected_pred": corrected,
+        "tft_lower": pred_lower,
+        "tft_upper": pred_upper,
+        "corrected_median": corrected_median,
+        "corrected_upper": corrected_upper,
+        "corrected_lower": corrected_lower,
         "correction": correction,
     })
-    results["corrected_pred"] = results["corrected_pred"].clip(lower=0)
+    results["corrected_median"] = results["corrected_median"].clip(lower=0)
+    results["corrected_upper"] = results["corrected_upper"].clip(lower=0)
+    results["corrected_lower"] = results["corrected_lower"].clip(lower=0)
 
     return results
 
@@ -173,7 +182,7 @@ def rolling_window_evaluation(
             pd.to_datetime(predictions_df["time"]).dt.date.between(
                 window_start.date(), (test_day - pd.Timedelta(hours=1)).date()
             )
-        ]["median"].values
+        ][["median", "lower", "upper"]].values
         if len(window_predictions) == 0:
             logging.warning(f"No predictions for window ending {test_day.date()}, skipping")
             continue

@@ -5,6 +5,7 @@ import numpy as np# type: ignore[import]
 import logging
 import sys
 import wandb # type: ignore
+import plotly.graph_objects as go
 import matplotlib.pyplot as plt # type: ignore[import]
 from src.config import file_config, residuals_config
 from src.utils.utils import wandb_login
@@ -17,7 +18,7 @@ logging.basicConfig(level=logging.INFO)
 
 def load_residual_model() -> ResidualCorrector:
     model = ResidualCorrector(
-        input_size=7,
+        input_size=11,
         hidden_size=residuals_config.hidden_size
     )
     model.load_state_dict(torch.load(f"{file_config.models_dir}/residual/residual_corrector.pth"))
@@ -26,28 +27,62 @@ def load_residual_model() -> ResidualCorrector:
 
 
 
-def plot_predictions(results: pd.DataFrame, save_path: str, naive_pred: np.ndarray):
-    """Plot actual vs TFT vs TFT+Residual predictions."""
-    fig, ax = plt.subplots(figsize=(15, 5))
-    
-    ax.plot(results["actual"].values, label="Actual", color="black", linewidth=1.5)
-    ax.plot(results["tft_pred"].values, label="TFT", color="blue", linewidth=1, alpha=0.7)
-    ax.plot(results["corrected_pred"].values, label="TFT + Residual", color="red", linewidth=1, alpha=0.7)
-    ax.plot(naive_pred, label="Naive Baseline", color="green", linewidth=1, alpha=0.5, linestyle="--")
-    ax.set_xlabel("Time (hours)")
-    ax.set_ylabel("Normalised Power Output")
-    ax.set_title("Solar PV Forecast: Actual vs TFT vs TFT+Residual Corrector")
-    
-    
+def plot_predictions(results: pd.DataFrame, naive_pred: np.ndarray, name: str, hours: int = 168):
+    """Plot actual vs TFT vs TFT+Residual with uncertainty bands using plotly."""
+    r = results.iloc[:hours].copy()
+    naive = naive_pred[:hours]
+    x = list(range(hours))
 
-    ax.legend()
-    ax.grid(True, alpha=0.3)
-    plt.tight_layout()
-    plt.savefig(save_path, dpi=150)
-    wandb.log({"predictions_plot": wandb.Image(fig)}) 
-    plt.close(fig)
-    logging.info(f"Plot saved to {save_path}")
+    fig = go.Figure()
 
+    # actual
+    fig.add_trace(go.Scatter(
+        x=x, y=r["actual"].values,
+        name="Actual", line=dict(color="black", width=2)
+    ))
+
+    # TFT uncertainty band
+    fig.add_trace(go.Scatter(
+        x=x + x[::-1],
+        y=list(r["tft_upper"].values) + list(r["tft_lower"].values[::-1]),
+        fill="toself", fillcolor="rgba(0,0,255,0.1)",
+        line=dict(color="rgba(255,255,255,0)"),
+        name="TFT 80% interval", showlegend=True
+    ))
+    fig.add_trace(go.Scatter(
+        x=x, y=r["tft_pred"].values,
+        name="TFT Median", line=dict(color="blue", width=1.5)
+    ))
+
+    # TFT+Residual uncertainty band
+    fig.add_trace(go.Scatter(
+        x=x + x[::-1],
+        y=list(r["corrected_upper"].values) + list(r["corrected_lower"].values[::-1]),
+        fill="toself", fillcolor="rgba(255,0,0,0.1)",
+        line=dict(color="rgba(255,255,255,0)"),
+        name="Corrected 80% interval", showlegend=True
+    ))
+    fig.add_trace(go.Scatter(
+        x=x, y=r["corrected_median"].values,
+        name="TFT + Residual", line=dict(color="red", width=1.5)
+    ))
+
+    # naive
+    fig.add_trace(go.Scatter(
+        x=x, y=naive,
+        name="Naive Baseline", line=dict(color="green", width=1, dash="dash")
+    ))
+
+    fig.update_layout(
+        title="Solar PV Forecast: Actual vs TFT vs TFT+Residual Corrector",
+        xaxis_title="Time (hours)",
+        yaxis_title="Normalised Power Output",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+        template="plotly_white",
+        height=400
+    )
+
+    wandb.log({name: fig})
 
 
 def naive_baseline(results: pd.DataFrame) -> np.ndarray:
@@ -81,7 +116,7 @@ if __name__ == "__main__":
     results.to_csv(f"{file_config.results_dir}/{rolling_file}", index=False)
     
     tft_metrics = compute_metrics(results["actual"].values, results["tft_pred"].values)
-    corrected_metrics = compute_metrics(results["actual"].values, results["corrected_pred"].values)
+    corrected_metrics = compute_metrics(results["actual"].values, results["corrected_median"].values)
     naive_pred = naive_baseline(results)
     naive_metrics = compute_metrics(results["actual"].values, naive_pred)
     
@@ -104,7 +139,8 @@ if __name__ == "__main__":
     pd.DataFrame([tft_metrics]).to_csv(f"{file_config.results_dir}/metrics_tft_{metrics_prefix}.csv", index=False)
     pd.DataFrame([corrected_metrics]).to_csv(f"{file_config.results_dir}/metrics_residual_{metrics_prefix}.csv", index=False)
     
-    plot_predictions(results, f"{file_config.results_dir}/predictions_plot_{metrics_prefix}.png", naive_pred=naive_pred)
+    plot_predictions(results, naive_pred, "forecast_oct_week", hours=168)
+    plot_predictions(results.iloc[1000:], naive_pred[1000:], "forecast_dec_week", hours=168)
     
     wandb.finish()
     logging.info("Evaluation complete")
