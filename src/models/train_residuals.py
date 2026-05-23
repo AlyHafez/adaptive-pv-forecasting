@@ -48,8 +48,8 @@ def evaluate_residuals(
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
     
-    features = test_df[["hour_sin", "hour_cos", "month_sin", "month_cos", 
-                         "dayofyear_sin", "dayofyear_cos"]].values
+    features = test_df[[ "hour_sin", "hour_cos", "month_sin", "month_cos",
+                         "dayofyear_sin", "dayofyear_cos", "daylight"]].values
     
     if test_predictions.ndim == 3:
         pred_median = test_predictions[:, :, 1].flatten()
