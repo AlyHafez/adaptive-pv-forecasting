@@ -6,6 +6,7 @@ import torch.nn as nn # type: ignore[import]
 import logging # type: ignore[import]
 import wandb # type: ignore
 import os
+from src.models.eval_residual import evaluate_residuals
 from src.config import file_config, residuals_config # type: ignore[import]
 from src.utils.utils import wandb_login, set_seed # type: ignore[import]
 
@@ -122,7 +123,14 @@ def rolling_window_evaluation(
                 window_start.date(), (test_day - pd.Timedelta(hours=1)).date()
             )
         ]["median"].values
+        if len(window_predictions) == 0:
+            logging.warning(f"No predictions for window ending {test_day.date()}, skipping")
+            continue
 
+        # align lengths
+        min_len = min(len(window_df), len(window_predictions))
+        window_df = window_df.iloc[-min_len:].reset_index(drop=True)
+        window_predictions = window_predictions[-min_len:]
         # retrain MLP on window — no wandb logging per iteration
         set_seed(residuals_config.seed)
         dataset = create_dataset(window_df, window_predictions)
@@ -151,7 +159,10 @@ def rolling_window_evaluation(
             logging.warning(f"No predictions for {test_day.date()}, skipping")
             continue
 
-        from src.models.eval_residual import evaluate_residuals
+        if len(test_preds) != len(test_day_df):
+            logging.warning(f"Incomplete predictions for {test_day.date()}: {len(test_preds)} vs {len(test_day_df)}, skipping")
+            continue
+
         day_results = evaluate_residuals(test_day_df, test_preds, model)
         day_results["date"] = test_day
         all_results.append(day_results)
