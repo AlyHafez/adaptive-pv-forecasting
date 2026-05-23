@@ -6,7 +6,6 @@ import torch.nn as nn # type: ignore[import]
 import logging # type: ignore[import]
 import wandb # type: ignore
 import os
-from src.models.eval_residual import evaluate_residuals
 from src.config import file_config, residuals_config # type: ignore[import]
 from src.utils.utils import wandb_login, set_seed # type: ignore[import]
 
@@ -28,6 +27,40 @@ def create_dataset(dataset: pd.DataFrame, predictions: np.ndarray) -> torch.util
     X = np.column_stack([pred_median, features])
     y = dataset["P_norm"].values - pred_median  # residuals (actual - predicted median)
     return torch.utils.data.TensorDataset(torch.tensor(X, dtype=torch.float32), torch.tensor(y, dtype=torch.float32))
+
+def evaluate_residuals(
+    test_df: pd.DataFrame,
+    test_predictions: np.ndarray,
+    model: ResidualCorrector
+) -> pd.DataFrame:
+    """Evaluate TFT + residual corrector on test set."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
+    
+    features = test_df[["hour_sin", "hour_cos", "month_sin", "month_cos", 
+                         "dayofyear_sin", "dayofyear_cos"]].values
+    
+    if test_predictions.ndim == 3:
+        pred_median = test_predictions[:, :, 1].flatten()
+    else:
+        pred_median = test_predictions.flatten()
+    
+    X = np.column_stack([pred_median, features])
+    X_tensor = torch.tensor(X, dtype=torch.float32).to(device)
+    
+    with torch.no_grad():
+        correction = model(X_tensor).squeeze().cpu().numpy()
+    
+    corrected = pred_median + correction
+    actuals = test_df["P_norm"].values
+    
+    results = pd.DataFrame({
+        "actual": actuals,
+        "tft_pred": pred_median,
+        "corrected_pred": corrected,
+        "correction": correction,
+    })
+    return results
 
 def dataloader(dataset: torch.utils.data.Dataset, batch_size: int, train: bool = True) -> torch.utils.data.DataLoader:
     """Create a PyTorch DataLoader from a dataset.
