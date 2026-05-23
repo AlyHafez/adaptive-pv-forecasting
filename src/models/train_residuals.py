@@ -98,7 +98,7 @@ def train_residuals(
     dataset = create_dataset(train_df, train_predictions)
     train_loader = dataloader(dataset, batch_size=residuals_config.batch_size, train=True)
     
-    model = ResidualCorrector(input_size=7, hidden_size=residuals_config.hidden_size)
+    model = ResidualCorrector(input_size=11, hidden_size=residuals_config.hidden_size)
     optimizer = torch.optim.Adam(model.parameters(), lr=residuals_config.lr)
     criterion = nn.MSELoss()
     
