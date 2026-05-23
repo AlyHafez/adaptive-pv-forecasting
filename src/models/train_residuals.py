@@ -181,7 +181,7 @@ def rolling_window_evaluation(
         set_seed(residuals_config.seed)
         dataset = create_dataset(window_df, window_predictions)
         train_loader = dataloader(dataset, batch_size=residuals_config.batch_size, train=True)
-        model = ResidualCorrector(input_size=10, hidden_size=residuals_config.hidden_size)
+        model = ResidualCorrector(input_size=11, hidden_size=residuals_config.hidden_size)
         optimizer = torch.optim.Adam(model.parameters(), lr=residuals_config.lr)
         criterion = nn.MSELoss()
         model = model.to(device)
