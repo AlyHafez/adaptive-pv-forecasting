@@ -22,9 +22,20 @@ def create_dataset(dataset: pd.DataFrame, predictions: np.ndarray) -> torch.util
     features = dataset[[ "hour_sin", "hour_cos", "month_sin", "month_cos", "dayofyear_sin", "dayofyear_cos"]].values
     
     if predictions.ndim == 3:
-        pred_median = predictions[:, :, 1].flatten()  # from TFT directly
-    else: pred_median = predictions.flatten()  # from saved CSV
-    X = np.column_stack([pred_median, features])
+        pred_median = predictions[:, :, 1].flatten()
+        pred_lower = predictions[:, :, 0].flatten()
+        pred_upper = predictions[:, :, 2].flatten()
+    elif predictions.ndim == 2:  # from CSV as column_stack
+        pred_median = predictions[:, 0].flatten()
+        pred_lower = predictions[:, 1].flatten()
+        pred_upper = predictions[:, 2].flatten()
+    else:
+        pred_median = predictions.flatten()
+        pred_lower = pred_median  # fallback if only median provided
+        pred_upper = pred_median
+
+    pred_spread = pred_upper - pred_lower
+    X = np.column_stack([pred_median, pred_lower, pred_upper, pred_spread, features])
     y = dataset["P_norm"].values - pred_median  # residuals (actual - predicted median)
     return torch.utils.data.TensorDataset(torch.tensor(X, dtype=torch.float32), torch.tensor(y, dtype=torch.float32))
 
@@ -170,7 +181,7 @@ def rolling_window_evaluation(
         set_seed(residuals_config.seed)
         dataset = create_dataset(window_df, window_predictions)
         train_loader = dataloader(dataset, batch_size=residuals_config.batch_size, train=True)
-        model = ResidualCorrector(input_size=7, hidden_size=residuals_config.hidden_size)
+        model = ResidualCorrector(input_size=10, hidden_size=residuals_config.hidden_size)
         optimizer = torch.optim.Adam(model.parameters(), lr=residuals_config.lr)
         criterion = nn.MSELoss()
         model = model.to(device)
@@ -219,8 +230,16 @@ if __name__ == "__main__":
 
     
     predictions_df = pd.read_csv(f"{file_config.results_dir}/predictions_ukpv.csv")
-    train_predictions = predictions_df["median"].values[:len(train_df)]
-
+    median = predictions_df["median"].values[:len(train_df)]
+    upper = predictions_df["upper"].values[:len(train_df)]
+    lower = predictions_df["lower"].values[:len(train_df)]
+    spread = upper- lower
+    train_predictions = np.column_stack([
+    median,
+    lower,
+    upper,
+    spread
+])
     logging.info(f"train_df: {train_df.shape}, predictions: {len(train_predictions)}")
     
     os.makedirs(f"{file_config.models_dir}/residual", exist_ok=True)
