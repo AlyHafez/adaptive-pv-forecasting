@@ -68,6 +68,7 @@ if __name__ == "__main__":
     wandb_login()
     os.makedirs(f"{file_config.tft_models_dir}", exist_ok=True) 
     data = load_data(file_config.fine_tuning_households)
+    data = data.drop(columns=["ss_id"])
     transfer_learning(data, file_config.tft_checkpoint_path)
     wandb.finish() #type: ignore 
     
