@@ -3,6 +3,7 @@ import torch # type: ignore[import]
 import pandas as pd# type: ignore[import]
 import numpy as np# type: ignore[import]
 import logging
+import sys
 import wandb # type: ignore
 import matplotlib.pyplot as plt # type: ignore[import]
 from src.config import file_config, residuals_config
@@ -88,21 +89,33 @@ def naive_baseline(results: pd.DataFrame) -> np.ndarray:
 
 
 if __name__ == "__main__":
+
     wandb_login()
-    wandb.init(project="pv-forecasting", name="residual-evaluation")
+    
+    mode = sys.argv[1] if len(sys.argv) > 1 else "finetuned"
+    
+    if mode == "finetuned":
+        run_name = "residual-evaluation-finetuned"
+        predictions_file = "predictions_ukpv_finetuned.csv"
+        rolling_file = "predictions_rolling_finetuned.csv"
+        metrics_prefix = "finetuned"
+    else:
+        run_name = "residual-evaluation-pretrained"
+        predictions_file = "predictions_ukpv_pretrained.csv"
+        rolling_file = "predictions_rolling_pretrained.csv"
+        metrics_prefix = "pretrained"
+
+    wandb.init(project="pv-forecasting", name=run_name)
     
     df = pd.read_parquet(file_config.test_set)
-    predictions_df = pd.read_csv(f"{file_config.results_dir}/predictions_ukpv.csv")
+    predictions_df = pd.read_csv(f"{file_config.results_dir}/{predictions_file}")
     
-    # rolling window evaluation
-
     results = rolling_window_evaluation(df, predictions_df, window_days=30, epochs=50)
-    results.to_csv(f"{file_config.results_dir}/predictions_rolling.csv", index=False)
+    results.to_csv(f"{file_config.results_dir}/{rolling_file}", index=False)
     
-    # metrics
     tft_metrics = compute_metrics(results["actual"].values, results["tft_pred"].values)
     corrected_metrics = compute_metrics(results["actual"].values, results["corrected_pred"].values)
-    naive_pred = naive_baseline(results)  
+    naive_pred = naive_baseline(results)
     naive_metrics = compute_metrics(results["actual"].values, naive_pred)
     
     wandb.log({
@@ -121,10 +134,10 @@ if __name__ == "__main__":
     logging.info(f"Corrected — MAE: {corrected_metrics['MAE']:.4f}, RMSE: {corrected_metrics['RMSE']:.4f}")
     
     pd.DataFrame([naive_metrics]).to_csv(f"{file_config.results_dir}/metrics_naive.csv", index=False)
-    pd.DataFrame([tft_metrics]).to_csv(f"{file_config.results_dir}/metrics_tft_ukpv.csv", index=False)
-    pd.DataFrame([corrected_metrics]).to_csv(f"{file_config.results_dir}/metrics_residual_corrector.csv", index=False)
+    pd.DataFrame([tft_metrics]).to_csv(f"{file_config.results_dir}/metrics_tft_{metrics_prefix}.csv", index=False)
+    pd.DataFrame([corrected_metrics]).to_csv(f"{file_config.results_dir}/metrics_residual_{metrics_prefix}.csv", index=False)
     
-    plot_predictions(results, f"{file_config.results_dir}/predictions_plot.png", naive_pred=naive_pred)
+    plot_predictions(results, f"{file_config.results_dir}/predictions_plot_{metrics_prefix}.png", naive_pred=naive_pred)
     
     wandb.finish()
     logging.info("Evaluation complete")
