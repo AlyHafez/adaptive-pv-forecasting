@@ -60,6 +60,8 @@ def evaluate_residuals(
         "corrected_pred": corrected,
         "correction": correction,
     })
+    results["corrected_pred"] = results["corrected_pred"].clip(lower=0)
+
     return results
 
 def dataloader(dataset: torch.utils.data.Dataset, batch_size: int, train: bool = True) -> torch.utils.data.DataLoader:
