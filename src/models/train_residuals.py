@@ -19,7 +19,7 @@ def create_dataset(dataset: pd.DataFrame, predictions: np.ndarray) -> torch.util
         predictions (np.ndarray): The predicted values from the TFT model.
     Returns:
         torch.utils.data.Dataset: A PyTorch dataset ready for training."""
-    features = dataset[[ "hour_sin", "hour_cos", "month_sin", "month_cos", "dayofyear_sin", "dayofyear_cos"]].values
+    features = dataset[[ "hour_sin", "hour_cos", "month_sin", "month_cos", "dayofyear_sin", "dayofyear_cos", "daylight"]].values
     
     if predictions.ndim == 3:
         pred_median = predictions[:, :, 1].flatten()
