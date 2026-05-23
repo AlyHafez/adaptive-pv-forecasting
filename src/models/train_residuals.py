@@ -51,12 +51,17 @@ def evaluate_residuals(
     features = test_df[[ "hour_sin", "hour_cos", "month_sin", "month_cos",
                          "dayofyear_sin", "dayofyear_cos", "daylight"]].values
     
-    if test_predictions.ndim == 3:
-        pred_median = test_predictions[:, :, 1].flatten()
+    if test_predictions.ndim == 2:
+        pred_median = test_predictions[:, 0].flatten()
+        pred_lower = test_predictions[:, 1].flatten()
+        pred_upper = test_predictions[:, 2].flatten()
     else:
         pred_median = test_predictions.flatten()
-    
-    X = np.column_stack([pred_median, features])
+        pred_lower = pred_median
+        pred_upper = pred_median
+
+    pred_spread = pred_upper - pred_lower
+    X = np.column_stack([pred_median, pred_lower, pred_upper, pred_spread, features])
     X_tensor = torch.tensor(X, dtype=torch.float32).to(device)
     
     with torch.no_grad():
