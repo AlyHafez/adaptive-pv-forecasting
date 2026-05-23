@@ -76,10 +76,10 @@ if __name__ == "__main__":
         predictions = evaluate_tft(best_model, test_dataloader)
         quantiles = predictions.output.prediction
         pd.DataFrame({
-            "actual": predictions.y[0].cpu().numpy().flatten(),
-            "median": quantiles[:, :, 1].cpu().numpy().flatten(),
-            "lower": quantiles[:, :, 0].cpu().numpy().flatten(),
-            "upper": quantiles[:, :, 2].cpu().numpy().flatten(),
+            "actual": predictions.y[0].cpu().numpy()[:, 0],
+            "median": quantiles[:, 0, 1].cpu().numpy(),
+            "lower": quantiles[:, 0, 0].cpu().numpy(),
+            "upper": quantiles[:, 0, 2].cpu().numpy(),
         }).to_csv(f"{file_config.results_dir}/{output_file}", index=False)
         logging.info(f"PVGIS predictions saved to {output_file}")
 
@@ -90,16 +90,16 @@ if __name__ == "__main__":
         ukpv_df["time_idx"] = range(len(ukpv_df))
         ukpv_dataset = TimeSeriesDataSet.from_dataset(
             training_dataset, ukpv_df,
-            predict=True, stop_randomization=True, allow_missing_timesteps=True
+            predict=False, stop_randomization=True, allow_missing_timesteps=True
         )
         ukpv_dataloader = dataloader(ukpv_dataset, batch_size=tft_config.test_batch_size, train=False)
         predictions = evaluate_tft(best_model, ukpv_dataloader)
         quantiles = predictions.output.prediction
         pd.DataFrame({
-            "actual": predictions.y[0].cpu().numpy().flatten(),
-            "median": quantiles[:, :, 1].cpu().numpy().flatten(),
-            "lower": quantiles[:, :, 0].cpu().numpy().flatten(),
-            "upper": quantiles[:, :, 2].cpu().numpy().flatten(),
+            "actual": predictions.y[0].cpu().numpy()[:, 0],
+            "median": quantiles[:, 0, 1].cpu().numpy(),
+            "lower": quantiles[:, 0, 0].cpu().numpy(),
+            "upper": quantiles[:, 0, 2].cpu().numpy(),
         }).to_csv(f"{file_config.results_dir}/{output_file}", index=False)
         logging.info(f"UK_PV predictions saved to {output_file}")
 
