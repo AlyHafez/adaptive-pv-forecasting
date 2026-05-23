@@ -117,9 +117,11 @@ def rolling_window_evaluation(
             continue
 
         # get TFT predictions for window using positional index
-        window_mask = (df["time"] >= window_start) & (df["time"] < test_day)
-        window_idx = df[window_mask].index
-        window_predictions = predictions_df["median"].values[window_idx[0]:window_idx[-1]+1]
+        window_predictions = predictions_df[
+            pd.to_datetime(predictions_df["time"]).dt.date.between(
+                window_start.date(), (test_day - pd.Timedelta(hours=1)).date()
+            )
+        ]["median"].values
 
         # retrain MLP on window — no wandb logging per iteration
         set_seed(residuals_config.seed)
@@ -141,8 +143,13 @@ def rolling_window_evaluation(
         # predict next 24h
         test_mask = df["time"].dt.date == test_day.date()
         test_day_df = df[test_mask].reset_index(drop=True)
-        test_idx = df[test_mask].index
-        test_preds = predictions_df["median"].values[test_idx[0]:test_idx[-1]+1]
+        test_preds = predictions_df[
+            pd.to_datetime(predictions_df["time"]).dt.date == test_day.date()
+        ]["median"].values
+
+        if len(test_preds) == 0:
+            logging.warning(f"No predictions for {test_day.date()}, skipping")
+            continue
 
         from src.models.eval_residual import evaluate_residuals
         day_results = evaluate_residuals(test_day_df, test_preds, model)
