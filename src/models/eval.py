@@ -62,7 +62,7 @@ if __name__ == "__main__":
     else:
         raise ValueError(f"Unknown mode: {mode}")
 
-    wandb.init(project="pv-forecasting", name=run_name)
+    wandb.init(project="pv-forecasting", name=run_name) #type: ignore 
     
     data = pd.read_parquet(file_config.data_path)
     train_data, val_data, _ = split_data(data)
@@ -76,10 +76,10 @@ if __name__ == "__main__":
         predictions = evaluate_tft(best_model, test_dataloader)
         quantiles = predictions.output.prediction
         pd.DataFrame({
-            "actual": predictions.y[0].cpu().numpy().flatten(),
-            "median": quantiles[:, :, 1].cpu().numpy().flatten(),
-            "lower": quantiles[:, :, 0].cpu().numpy().flatten(),
-            "upper": quantiles[:, :, 2].cpu().numpy().flatten(),
+            "actual": predictions.y[0].cpu().numpy()[:, 0],  # first timestep only
+            "median": quantiles[:, 0, 1].cpu().numpy(),
+            "lower": quantiles[:, 0, 0].cpu().numpy(),
+            "upper": quantiles[:, 0, 2].cpu().numpy(),
         }).to_csv(f"{file_config.results_dir}/{output_file}", index=False)
         logging.info(f"PVGIS predictions saved to {output_file}")
 
@@ -96,10 +96,10 @@ if __name__ == "__main__":
         predictions = evaluate_tft(best_model, ukpv_dataloader)
         quantiles = predictions.output.prediction
         pd.DataFrame({
-            "actual": predictions.y[0].cpu().numpy().flatten(),
-            "median": quantiles[:, :, 1].cpu().numpy().flatten(),
-            "lower": quantiles[:, :, 0].cpu().numpy().flatten(),
-            "upper": quantiles[:, :, 2].cpu().numpy().flatten(),
+            "actual": predictions.y[0].cpu().numpy()[:, 0],  # first timestep only
+            "median": quantiles[:, 0, 1].cpu().numpy(),
+            "lower": quantiles[:, 0, 0].cpu().numpy(),
+            "upper": quantiles[:, 0, 2].cpu().numpy(),
         }).to_csv(f"{file_config.results_dir}/{output_file}", index=False)
         logging.info(f"UK_PV predictions saved to {output_file}")
 
