@@ -76,11 +76,11 @@ if __name__ == "__main__":
         predictions = evaluate_tft(best_model, test_dataloader)
         quantiles = predictions.output.prediction
         df_out = pd.DataFrame({
-            "time": data["time"].values[168:168+len(quantiles)],
-            "actual": predictions.y[0].cpu().numpy()[:, 0],
-            "median": quantiles[:, 0, 1].cpu().numpy(),
-            "lower": quantiles[:, 0, 0].cpu().numpy(),
-            "upper": quantiles[:, 0, 2].cpu().numpy(),
+            "time": data["time"].values[168+23:168+23+len(quantiles)],
+            "actual": predictions.y[0].cpu().numpy()[:, 23],
+            "median": quantiles[:, 23, 1].cpu().numpy(),
+            "lower": quantiles[:, 23, 0].cpu().numpy(),
+            "upper": quantiles[:, 23, 2].cpu().numpy(),
         })
         df_out["median"] = df_out["median"].clip(lower=0)
         df_out["lower"] = df_out["lower"].clip(lower=0)
@@ -101,11 +101,11 @@ if __name__ == "__main__":
         predictions = evaluate_tft(best_model, ukpv_dataloader)
         quantiles = predictions.output.prediction
         df_out = pd.DataFrame({
-            "time": ukpv_df["time"].values[168:168+len(quantiles)],
-            "actual": predictions.y[0].cpu().numpy()[:, 0],
-            "median": quantiles[:, 0, 1].cpu().numpy(),
-            "lower": quantiles[:, 0, 0].cpu().numpy(),
-            "upper": quantiles[:, 0, 2].cpu().numpy(),
+            "time": ukpv_df["time"].values[168+23:168+23+len(quantiles)],
+            "actual": predictions.y[0].cpu().numpy()[:, 23],
+            "median": quantiles[:, 23, 1].cpu().numpy(),
+            "lower": quantiles[:, 23, 0].cpu().numpy(),
+            "upper": quantiles[:, 23, 2].cpu().numpy(),
         })
         df_out["median"] = df_out["median"].clip(lower=0)
         df_out["lower"] = df_out["lower"].clip(lower=0)
