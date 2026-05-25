@@ -90,6 +90,46 @@ def naive_baseline(results: pd.DataFrame) -> np.ndarray:
     return results["actual"].shift(24).fillna(0).values
 
 
+
+def ensemble_residuals(predictions: dict, window_sizes:list)-> pd.DataFrame:
+    """
+    group each residual with different sizes and average their corrections to achieve ensemble correction
+
+    args:
+        predictions (dict): results including correction for all window sizes
+        window sizes (list): window sizes used
+    
+    returns:
+        results(pd.DataFrame): contains results and tft predictrions and ground truth
+    """
+
+    corrections = np.array([predictions[w]["correction"].values for w in window_sizes])
+    tft_median = predictions[window_sizes[0]]["tft_pred"].values
+    tft_upper = predictions[window_sizes[0]]["tft_upper"].values
+    tft_lower = predictions[window_sizes[0]]["tft_lower"].values
+    actual = predictions[window_sizes[0]]["actual"].values
+
+    correction = np.mean(corrections, axis=0)
+
+    corrected_median = tft_median + correction
+    corrected_upper = tft_upper + correction
+    corrected_lower = tft_lower+correction
+
+    results = pd.DataFrame({
+        "actual": actual,
+        "tft_pred": tft_median,
+        "tft_lower": tft_lower,
+        "tft_upper": tft_upper,
+        "corrected_median": corrected_median,
+        "corrected_upper": corrected_upper,
+        "corrected_lower": corrected_lower,
+        "correction": correction,
+    })
+    results["corrected_median"] = results["corrected_median"].clip(lower=0)
+    results["corrected_upper"] = results["corrected_upper"].clip(lower=0)
+    results["corrected_lower"] = results["corrected_lower"].clip(lower=0)
+    return results
+
 if __name__ == "__main__":
 
     wandb_login()
@@ -111,33 +151,41 @@ if __name__ == "__main__":
     
     df = pd.read_parquet(file_config.test_set)
     predictions_df = pd.read_csv(f"{file_config.results_dir}/{predictions_file}")
-    
-    results = rolling_window_evaluation(df, predictions_df, window_days=30, epochs=50)
-    results.to_csv(f"{file_config.results_dir}/{rolling_file}", index=False)
+    results_per_window = {}
+    window_mae = {}
+    window_rmse = {}
+    for window in residuals_config.window_size:
+        logging.info(f"running window size {window}")
+        results = rolling_window_evaluation(df, predictions_df, window_days=window, epochs=50)
+        results_per_window[window] = results
+        corrected_metrics = compute_metrics(results["actual"].values, results["corrected_median"].values)
+        window_mae[window] = corrected_metrics["MAE"]
+        window_rmse[window] = corrected_metrics["RMSE"]
+
+        
+        wandb.log({
+            f"window_{window}_mae": corrected_metrics["MAE"],
+            f"window_{window}_rmse": corrected_metrics["RMSE"],
+        })
+        logging.info(f"window_{window} - MAE: {corrected_metrics['MAE']:.4f}, RMSE: {corrected_metrics['RMSE']:.4f}")
+        results.to_csv(f"{file_config.results_dir}/{rolling_file}_{window}.csv", index=False)
     
     tft_metrics = compute_metrics(results["actual"].values, results["tft_pred"].values)
-    corrected_metrics = compute_metrics(results["actual"].values, results["corrected_median"].values)
     naive_pred = naive_baseline(results)
     naive_metrics = compute_metrics(results["actual"].values, naive_pred)
     
     wandb.log({
         "tft_mae": tft_metrics["MAE"],
         "tft_rmse": tft_metrics["RMSE"],
-        "corrected_mae": corrected_metrics["MAE"],
-        "corrected_rmse": corrected_metrics["RMSE"],
         "naive_mae": naive_metrics["MAE"],
         "naive_rmse": naive_metrics["RMSE"],
-        "mae_improvement": tft_metrics["MAE"] - corrected_metrics["MAE"],
-        "rmse_improvement": tft_metrics["RMSE"] - corrected_metrics["RMSE"],
     })
-    
+
     logging.info(f"Naive     — MAE: {naive_metrics['MAE']:.4f}, RMSE: {naive_metrics['RMSE']:.4f}")
     logging.info(f"TFT       — MAE: {tft_metrics['MAE']:.4f}, RMSE: {tft_metrics['RMSE']:.4f}")
-    logging.info(f"Corrected — MAE: {corrected_metrics['MAE']:.4f}, RMSE: {corrected_metrics['RMSE']:.4f}")
     
-    pd.DataFrame([naive_metrics]).to_csv(f"{file_config.results_dir}/metrics_naive.csv", index=False)
-    pd.DataFrame([tft_metrics]).to_csv(f"{file_config.results_dir}/metrics_tft_{metrics_prefix}.csv", index=False)
-    pd.DataFrame([corrected_metrics]).to_csv(f"{file_config.results_dir}/metrics_residual_{metrics_prefix}.csv", index=False)
+
+
     
     plot_predictions(results, naive_pred, "forecast_oct_week", hours=168)
     plot_predictions(results.iloc[1000:], naive_pred[1000:], "forecast_dec_week", hours=168)
