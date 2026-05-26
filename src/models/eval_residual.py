@@ -160,7 +160,7 @@ if __name__ == "__main__":
         logging.info(f"running window size {window}")
         results = rolling_window_evaluation(df, predictions_df, window_days=window, epochs=50)
         results_per_window[window] = results
-        corrected_metrics = compute_metrics(results["actual"].values, results["corrected_median"].values)
+        corrected_metrics = compute_metrics(results, "corrected_median")
         window_mae[window] = corrected_metrics["MAE"]
         window_rmse[window] = corrected_metrics["RMSE"]
         results.to_csv(f"{file_config.results_dir}/{rolling_file}_{window}.csv", index=False)
