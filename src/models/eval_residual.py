@@ -161,16 +161,21 @@ if __name__ == "__main__":
         corrected_metrics = compute_metrics(results["actual"].values, results["corrected_median"].values)
         window_mae[window] = corrected_metrics["MAE"]
         window_rmse[window] = corrected_metrics["RMSE"]
-
+        results.to_csv(f"{file_config.results_dir}/{rolling_file}_{window}.csv", index=False)
         
         wandb.log({
             f"window_{window}_mae": corrected_metrics["MAE"],
             f"window_{window}_rmse": corrected_metrics["RMSE"],
         })
         logging.info(f"window_{window} - MAE: {corrected_metrics['MAE']:.4f}, RMSE: {corrected_metrics['RMSE']:.4f}")
-        results.to_csv(f"{file_config.results_dir}/{rolling_file}_{window}.csv", index=False)
-    
+
+    ensemble_results = ensemble_residuals(results_per_window, residuals_config.window_size)
+    ensemble_metrics = compute_metrics(ensemble_results["actual"], ensemble_results["corrected_median"])
+    ensemble_residuals.to_csv(f"{file_config.results_dir}/{rolling_file}_ensemble.csv", index= False)
     tft_metrics = compute_metrics(results["actual"].values, results["tft_pred"].values)
+
+    logging.info(f"ensemble MAE: {ensemble_metrics["MAE"]}")
+    logging.info(f"ensemble RMSE: {ensemble_metrics["RMSE"]}")
     naive_pred = naive_baseline(results)
     naive_metrics = compute_metrics(results["actual"].values, naive_pred)
     
@@ -187,8 +192,8 @@ if __name__ == "__main__":
 
 
     
-    plot_predictions(results, naive_pred, "forecast_oct_week", hours=168)
-    plot_predictions(results.iloc[1000:], naive_pred[1000:], "forecast_dec_week", hours=168)
+    plot_predictions(ensemble_results, naive_pred, "ensemble_forecast_oct_week", hours=168)
+    plot_predictions(ensemble_results.iloc[1000:], naive_pred[1000:], "ensemble_forecast_dec_week", hours=168)
     
     wandb.finish()
     logging.info("Evaluation complete")
