@@ -174,8 +174,8 @@ if __name__ == "__main__":
     ensemble_residuals.to_csv(f"{file_config.results_dir}/{rolling_file}_ensemble.csv", index= False)
     tft_metrics = compute_metrics(results["actual"].values, results["tft_pred"].values)
 
-    logging.info(f"ensemble MAE: {ensemble_metrics["MAE"]}")
-    logging.info(f"ensemble RMSE: {ensemble_metrics["RMSE"]}")
+    logging.info(f"ensemble MAE: {ensemble_metrics["MAE"]:.4f}")
+    logging.info(f"ensemble RMSE: {ensemble_metrics["RMSE"]:.4f}")
     naive_pred = naive_baseline(results)
     naive_metrics = compute_metrics(results["actual"].values, naive_pred)
     
