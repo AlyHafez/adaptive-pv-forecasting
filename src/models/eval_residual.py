@@ -179,7 +179,7 @@ if __name__ == "__main__":
     logging.info(f"ensemble MAE: {ensemble_metrics['MAE']:.4f}")
     logging.info(f"ensemble RMSE: {ensemble_metrics['RMSE']:.4f}")
     naive_pred = naive_baseline(results)
-    naive_metrics = compute_metrics(results["actual"].values, naive_pred)
+    naive_metrics = compute_metrics(results, naive_pred)
     
     wandb.log({
         "tft_mae": tft_metrics["MAE"],
