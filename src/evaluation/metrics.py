@@ -56,6 +56,7 @@ def compute_metrics(results:pd.DataFrame, target:str,) -> dict:
         daylight (bool): flag identifying day and night times
     Returns:
         dict: A dictionary containing all computed metrics."""
+    
     daylight_only_results = results[results["daylight"] == 1].reset_index(drop=True)
     y_true = daylight_only_results["actual"].values
     y_pred = daylight_only_results[target].values

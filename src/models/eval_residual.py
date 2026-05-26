@@ -178,8 +178,8 @@ if __name__ == "__main__":
 
     logging.info(f"ensemble MAE: {ensemble_metrics['MAE']:.4f}")
     logging.info(f"ensemble RMSE: {ensemble_metrics['RMSE']:.4f}")
-    naive_pred = naive_baseline(results)
-    naive_metrics = compute_metrics(results, naive_pred)
+    results["naive"] = naive_baseline(results)
+    naive_metrics = compute_metrics(results, "naive")
     
     wandb.log({
         "tft_mae": tft_metrics["MAE"],
@@ -196,8 +196,8 @@ if __name__ == "__main__":
 
 
     
-    plot_predictions(ensemble_results, naive_pred, "forecast_oct_week", "ensemble residual", hours=168)
-    plot_predictions(ensemble_results.iloc[1000:], naive_pred[1000:], "forecast_dec_week","ensemble_residual", hours=168)
+    plot_predictions(ensemble_results, results["naive"], "forecast_oct_week", "ensemble residual", hours=168)
+    plot_predictions(ensemble_results.iloc[1000:], results["naive"][1000:], "forecast_dec_week","ensemble_residual", hours=168)
     
     wandb.finish()
     logging.info("Evaluation complete")
