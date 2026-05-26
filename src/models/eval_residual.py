@@ -108,7 +108,7 @@ def ensemble_residuals(predictions: dict, window_sizes:list)-> pd.DataFrame:
     tft_upper = predictions[window_sizes[0]]["tft_upper"].values
     tft_lower = predictions[window_sizes[0]]["tft_lower"].values
     actual = predictions[window_sizes[0]]["actual"].values
-
+    daylight = predictions[window_sizes[0]]["daylight"].values
     correction = np.mean(corrections, axis=0)
 
     corrected_median = tft_median + correction
@@ -124,6 +124,8 @@ def ensemble_residuals(predictions: dict, window_sizes:list)-> pd.DataFrame:
         "corrected_upper": corrected_upper,
         "corrected_lower": corrected_lower,
         "correction": correction,
+        "daylight": daylight
+        
     })
     results["corrected_median"] = results["corrected_median"].clip(lower=0)
     results["corrected_upper"] = results["corrected_upper"].clip(lower=0)
@@ -170,9 +172,9 @@ if __name__ == "__main__":
         logging.info(f"window_{window} - MAE: {corrected_metrics['MAE']:.4f}, RMSE: {corrected_metrics['RMSE']:.4f}")
 
     ensemble_results = ensemble_residuals(results_per_window, residuals_config.window_size)
-    ensemble_metrics = compute_metrics(ensemble_results["actual"], ensemble_results["corrected_median"])
+    ensemble_metrics = compute_metrics(ensemble_results, "corrected_median")
     ensemble_results.to_csv(f"{file_config.results_dir}/{rolling_file}_ensemble.csv", index= False)
-    tft_metrics = compute_metrics(results["actual"].values, results["tft_pred"].values)
+    tft_metrics = compute_metrics(results, "tft_pred")
 
     logging.info(f"ensemble MAE: {ensemble_metrics['MAE']:.4f}")
     logging.info(f"ensemble RMSE: {ensemble_metrics['RMSE']:.4f}")
@@ -184,6 +186,8 @@ if __name__ == "__main__":
         "tft_rmse": tft_metrics["RMSE"],
         "naive_mae": naive_metrics["MAE"],
         "naive_rmse": naive_metrics["RMSE"],
+        "ensemble_mae": ensemble_metrics["MAE"],
+        "ensemble_rmse": ensemble_metrics["RMSE"],
     })
 
     logging.info(f"Naive     — MAE: {naive_metrics['MAE']:.4f}, RMSE: {naive_metrics['RMSE']:.4f}")

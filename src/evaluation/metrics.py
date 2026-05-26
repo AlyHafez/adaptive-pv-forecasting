@@ -48,13 +48,17 @@ def mbe(y_true: np.ndarray, y_pred: np.ndarray) -> float:
         float: The calculated MBE value."""
     return np.mean(y_pred - y_true)
 
-def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
-    """Compute all evaluation metrics (RMSE, NRMSE, MAE, MBE) for the given true and predicted values.
+def compute_metrics(results:pd.DataFrame, target:str,) -> dict:
+    """Compute all evaluation metrics (RMSE, NRMSE, MAE, MBE) for the given true and predicted values excluding night times.
     Args:
         y_true (np.ndarray): The true target values.
         y_pred (np.ndarray): The predicted target values.
+        daylight (bool): flag identifying day and night times
     Returns:
         dict: A dictionary containing all computed metrics."""
+    daylight_only_results = results[results["daylight"] == 1].reset_index(drop=True)
+    y_true = daylight_only_results["actual"].values
+    y_pred = daylight_only_results[target].values
     return {
         "RMSE": rmse(y_true, y_pred),
         "NRMSE": nrmse(y_true, y_pred),

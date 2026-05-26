@@ -82,6 +82,7 @@ def evaluate_residuals(
         "corrected_upper": corrected_upper,
         "corrected_lower": corrected_lower,
         "correction": correction,
+        "daylight": test_df['daylight'].values
     })
     results["corrected_median"] = results["corrected_median"].clip(lower=0)
     results["corrected_upper"] = results["corrected_upper"].clip(lower=0)
@@ -99,63 +100,6 @@ def dataloader(dataset: torch.utils.data.Dataset, batch_size: int, train: bool =
         torch.utils.data.DataLoader: A PyTorch DataLoader ready for training or evaluation."""
     return torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=train)
 
-
-def train_residuals(
-    train_df: pd.DataFrame,
-    train_predictions: np.ndarray,
-    epochs: int = 50
-) -> ResidualCorrector:
-    
-    set_seed(residuals_config.seed)
-    wandb.init(project="pv-forecasting", name="residual-corrector")
-    
-    dataset = create_dataset(train_df, train_predictions)
-    train_loader = dataloader(dataset, batch_size=residuals_config.batch_size, train=True)
-    
-    model = ResidualCorrector(input_size=11, hidden_size=residuals_config.hidden_size)
-    optimizer = torch.optim.Adam(model.parameters(), lr=residuals_config.lr)
-    criterion = nn.MSELoss()
-    
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = model.to(device)
-    
-    best_loss = float('inf')
-    patience_counter = 0
-    patience = 10
-    
-    model.train()
-    for epoch in range(epochs):
-        epoch_loss = 0
-        for X_batch, y_batch in train_loader:
-            X_batch = X_batch.to(device)
-            y_batch = y_batch.to(device)
-            optimizer.zero_grad()
-            preds = model(X_batch).squeeze()
-            loss = criterion(preds, y_batch)
-            loss.backward()
-            optimizer.step()
-            epoch_loss += loss.item()
-        
-        avg_loss = epoch_loss / len(train_loader)
-        wandb.log({"train_loss": avg_loss, "epoch": epoch})  # log to W&B
-        
-        if epoch % 10 == 0:
-            logging.info(f"Epoch {epoch}/{epochs} — Loss: {avg_loss:.6f}")
-        
-        if avg_loss < best_loss:
-            best_loss = avg_loss
-            torch.save(model.state_dict(), f"{file_config.models_dir}/residual/residual_corrector.pth")
-            patience_counter = 0
-        else:
-            patience_counter += 1
-            if patience_counter >= patience:
-                logging.info(f"Early stopping at epoch {epoch} — Best loss: {best_loss:.6f}")
-                break
-    
-    wandb.log({"best_loss": best_loss})
-    wandb.finish()
-    logging.info(f"Training complete — Best loss: {best_loss:.6f}")
-    return model
 
 def rolling_window_evaluation(
     df: pd.DataFrame,
@@ -247,7 +191,7 @@ if __name__ == "__main__":
     median = predictions_df["median"].values[:len(train_df)]
     upper = predictions_df["upper"].values[:len(train_df)]
     lower = predictions_df["lower"].values[:len(train_df)]
-    spread = upper- lower
+    spread = upper - lower
     train_predictions = np.column_stack([
     median,
     lower,
@@ -257,4 +201,3 @@ if __name__ == "__main__":
     logging.info(f"train_df: {train_df.shape}, predictions: {len(train_predictions)}")
     
     os.makedirs(f"{file_config.models_dir}/residual", exist_ok=True)
-    model = train_residuals(train_df, train_predictions, epochs=50)
