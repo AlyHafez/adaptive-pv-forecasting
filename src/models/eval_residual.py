@@ -171,7 +171,7 @@ if __name__ == "__main__":
 
     ensemble_results = ensemble_residuals(results_per_window, residuals_config.window_size)
     ensemble_metrics = compute_metrics(ensemble_results["actual"], ensemble_results["corrected_median"])
-    ensemble_residuals.to_csv(f"{file_config.results_dir}/{rolling_file}_ensemble.csv", index= False)
+    ensemble_results.to_csv(f"{file_config.results_dir}/{rolling_file}_ensemble.csv", index= False)
     tft_metrics = compute_metrics(results["actual"].values, results["tft_pred"].values)
 
     logging.info(f"ensemble MAE: {ensemble_metrics['MAE']:.4f}")
