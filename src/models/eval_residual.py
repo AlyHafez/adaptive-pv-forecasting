@@ -27,7 +27,7 @@ def load_residual_model() -> ResidualCorrector:
 
 
 
-def plot_predictions(results: pd.DataFrame, naive_pred: np.ndarray, name: str, hours: int = 168):
+def plot_predictions(results: pd.DataFrame, naive_pred: np.ndarray, name: str, corrector_type: str, hours: int = 168):
     """Plot actual vs TFT vs TFT+Residual with uncertainty bands using plotly."""
     r = results.iloc[:hours].copy()
     naive = naive_pred[:hours]
@@ -60,11 +60,11 @@ def plot_predictions(results: pd.DataFrame, naive_pred: np.ndarray, name: str, h
         y=list(r["corrected_upper"].values) + list(r["corrected_lower"].values[::-1]),
         fill="toself", fillcolor="rgba(255,0,0,0.1)",
         line=dict(color="rgba(255,255,255,0)"),
-        name="Corrected 80% interval", showlegend=True
+        name=f"{corrector_type} 80% interval", showlegend=True
     ))
     fig.add_trace(go.Scatter(
         x=x, y=r["corrected_median"].values,
-        name="TFT + Residual", line=dict(color="red", width=1.5)
+        name=f"TFT + {corrector_type}", line=dict(color="red", width=1.5)
     ))
 
     # naive
@@ -192,8 +192,8 @@ if __name__ == "__main__":
 
 
     
-    plot_predictions(ensemble_results, naive_pred, "ensemble_forecast_oct_week", hours=168)
-    plot_predictions(ensemble_results.iloc[1000:], naive_pred[1000:], "ensemble_forecast_dec_week", hours=168)
+    plot_predictions(ensemble_results, naive_pred, "forecast_oct_week", "ensemble residual", hours=168)
+    plot_predictions(ensemble_results.iloc[1000:], naive_pred[1000:], "forecast_dec_week","ensemble_residual", hours=168)
     
     wandb.finish()
     logging.info("Evaluation complete")
