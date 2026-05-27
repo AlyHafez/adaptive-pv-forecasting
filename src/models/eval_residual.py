@@ -213,7 +213,7 @@ if __name__ == "__main__":
         })
         logging.info(f"window_{window} - MAE: {corrected_metrics['MAE']:.4f}, RMSE: {corrected_metrics['RMSE']:.4f}")
 
-    ensemble_results = ensemble_residuals(results_per_window, residuals_config.window_size, "equal")
+    ensemble_results = ensemble_residuals(results_per_window, residuals_config.window_size, "inverse_mae")
     ensemble_metrics = compute_metrics(ensemble_results, "corrected_median")
     ensemble_results.to_csv(f"{file_config.results_dir}/{rolling_file}_ensemble.csv", index= False)
     tft_metrics = compute_metrics(results, "tft_pred")
