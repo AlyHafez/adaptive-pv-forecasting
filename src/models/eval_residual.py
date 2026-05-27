@@ -99,7 +99,7 @@ def arima_baseline(raw_df: pd.DataFrame, results_df: pd.DataFrame, test_start: s
 
     for test_day in test_dates:
         logging.info(f"ARIMA processing {test_day.date()}")
-        model = ARIMA(history, order=(24, 0, 1))
+        model = ARIMA(history, order=(2, 0, 1))
         fit = model.fit()
         forecast = np.clip(fit.forecast(steps=24), 0, None)
 
@@ -112,7 +112,8 @@ def arima_baseline(raw_df: pd.DataFrame, results_df: pd.DataFrame, test_start: s
         all_results.append(pd.DataFrame({
             "actual": actual,
             "arima_pred": forecast,
-            "date": test_day
+            "date": test_day,
+            "daylight": results_df["daylight"]
         }))
 
     return pd.concat(all_results, ignore_index=True)
