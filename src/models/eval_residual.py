@@ -5,6 +5,7 @@ import numpy as np# type: ignore[import]
 import logging
 import sys
 import wandb # type: ignore
+from statsmodels.tsa.arima.model import ARIMA
 import plotly.graph_objects as go
 import matplotlib.pyplot as plt # type: ignore[import]
 from src.config import file_config, residuals_config
@@ -89,8 +90,32 @@ def naive_baseline(results: pd.DataFrame) -> np.ndarray:
     """return persistent naive baseline"""
     return results["actual"].shift(24).fillna(0).values
 
+def arima_baseline(raw_df: pd.DataFrame, results_df: pd.DataFrame, test_start: str = "2023-10-01") -> pd.DataFrame:
+    # use raw df for pre-October history
+    train = raw_df[raw_df["time"] < pd.Timestamp(test_start)]["P_norm"].values
+    history = list(train)
+    test_dates = sorted(results_df["date"].unique())
+    all_results = []
 
+    for test_day in test_dates:
+        logging.info(f"ARIMA processing {test_day.date()}")
+        model = ARIMA(history, order=(24, 0, 1))
+        fit = model.fit()
+        forecast = np.clip(fit.forecast(steps=24), 0, None)
 
+        actual = results_df[results_df["date"] == test_day]["actual"].values
+
+        if len(actual) != 24:
+            continue
+
+        history.extend(actual.tolist())
+        all_results.append(pd.DataFrame({
+            "actual": actual,
+            "arima_pred": forecast,
+            "date": test_day
+        }))
+
+    return pd.concat(all_results, ignore_index=True)
 def ensemble_residuals(predictions: dict, window_sizes:list)-> pd.DataFrame:
     """
     group each residual with different sizes and average their corrections to achieve ensemble correction
@@ -180,7 +205,14 @@ if __name__ == "__main__":
     logging.info(f"ensemble RMSE: {ensemble_metrics['RMSE']:.4f}")
     results["naive"] = naive_baseline(results)
     naive_metrics = compute_metrics(results, "naive")
-    
+
+    arima_results = arima_baseline(df, ensemble_results)
+    arima_daytime = arima_results[arima_results["date"].isin(
+        ensemble_results[ensemble_results["daylight"] == 1]["date"]
+    )] if "daylight" in arima_results.columns else arima_results
+    arima_metrics = compute_metrics(arima_results,"arima_pred")
+    logging.info(f"ARIMA — MAE: {arima_metrics['MAE']:.4f}, RMSE: {arima_metrics['RMSE']:.4f}")
+    wandb.log({"arima_mae": arima_metrics["MAE"], "arima_rmse": arima_metrics["RMSE"]})
     wandb.log({
         "tft_mae": tft_metrics["MAE"],
         "tft_rmse": tft_metrics["RMSE"],
