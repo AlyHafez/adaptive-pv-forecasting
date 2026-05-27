@@ -103,17 +103,22 @@ def arima_baseline(raw_df: pd.DataFrame, results_df: pd.DataFrame, test_start: s
         fit = model.fit()
         forecast = np.clip(fit.forecast(steps=24), 0, None)
 
-        actual = results_df[pd.to_datetime(results_df["date"]).dt.date == test_day.date()]["actual"].values
+        day_mask = pd.to_datetime(results_df["date"]).dt.date == test_day.date()
+        day_df = results_df[day_mask]
+
+        actual = day_df["actual"].values
 
         if len(actual) != 24:
             continue
+        daylight = day_df["daylight"].values if "daylight" in day_df.columns else np.zeros(24)
+
 
         history.extend(actual.tolist())
         all_results.append(pd.DataFrame({
             "actual": actual,
             "arima_pred": forecast,
             "date": test_day,
-            "daylight": results_df["daylight"]
+            "daylight": daylight
         }))
 
     return pd.concat(all_results, ignore_index=True)
