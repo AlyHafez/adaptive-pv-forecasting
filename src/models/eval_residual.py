@@ -134,6 +134,7 @@ def ensemble_residuals(predictions: dict, window_sizes:list)-> pd.DataFrame:
     tft_lower = predictions[window_sizes[0]]["tft_lower"].values
     actual = predictions[window_sizes[0]]["actual"].values
     daylight = predictions[window_sizes[0]]["daylight"].values
+    
     correction = np.mean(corrections, axis=0)
 
     corrected_median = tft_median + correction
@@ -150,6 +151,7 @@ def ensemble_residuals(predictions: dict, window_sizes:list)-> pd.DataFrame:
         "corrected_lower": corrected_lower,
         "correction": correction,
         "daylight": daylight
+        "date": predictions[window_sizes[0]]["date"].values,
         
     })
     results["corrected_median"] = results["corrected_median"].clip(lower=0)
