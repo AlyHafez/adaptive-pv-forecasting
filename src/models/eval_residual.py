@@ -116,7 +116,7 @@ def arima_baseline(raw_df: pd.DataFrame, results_df: pd.DataFrame, test_start: s
         }))
 
     return pd.concat(all_results, ignore_index=True)
-def ensemble_residuals(predictions: dict, window_sizes:list)-> pd.DataFrame:
+def ensemble_residuals(predictions: dict, window_sizes:list, method:list)-> pd.DataFrame:
     """
     group each residual with different sizes and average their corrections to achieve ensemble correction
 
@@ -127,15 +127,24 @@ def ensemble_residuals(predictions: dict, window_sizes:list)-> pd.DataFrame:
     returns:
         results(pd.DataFrame): contains results and tft predictrions and ground truth
     """
-
     corrections = np.array([predictions[w]["correction"].values for w in window_sizes])
     tft_median = predictions[window_sizes[0]]["tft_pred"].values
     tft_upper = predictions[window_sizes[0]]["tft_upper"].values
     tft_lower = predictions[window_sizes[0]]["tft_lower"].values
     actual = predictions[window_sizes[0]]["actual"].values
     daylight = predictions[window_sizes[0]]["daylight"].values
-    
-    correction = np.mean(corrections, axis=0)
+    if method == "inverse_mae":
+        maes = np.array([compute_metrics(predictions[win],
+                         "corrected_median")["MAE"]
+                         for win in window_sizes])
+        w = (1 / maes) / (1 / maes).sum()
+        
+
+
+    else: 
+        w = np.ones(len(window_sizes)) / len(window_sizes)
+
+    correction = np.average(corrections, weights=w, axis=0)
 
     corrected_median = tft_median + correction
     corrected_upper = tft_upper + correction
@@ -198,7 +207,7 @@ if __name__ == "__main__":
         })
         logging.info(f"window_{window} - MAE: {corrected_metrics['MAE']:.4f}, RMSE: {corrected_metrics['RMSE']:.4f}")
 
-    ensemble_results = ensemble_residuals(results_per_window, residuals_config.window_size)
+    ensemble_results = ensemble_residuals(results_per_window, residuals_config.window_size, "equal")
     ensemble_metrics = compute_metrics(ensemble_results, "corrected_median")
     ensemble_results.to_csv(f"{file_config.results_dir}/{rolling_file}_ensemble.csv", index= False)
     tft_metrics = compute_metrics(results, "tft_pred")
