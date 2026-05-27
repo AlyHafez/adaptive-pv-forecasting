@@ -150,7 +150,7 @@ def ensemble_residuals(predictions: dict, window_sizes:list)-> pd.DataFrame:
         "corrected_upper": corrected_upper,
         "corrected_lower": corrected_lower,
         "correction": correction,
-        "daylight": daylight
+        "daylight": daylight,
         "date": predictions[window_sizes[0]]["date"].values,
         
     })
