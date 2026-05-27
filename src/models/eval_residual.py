@@ -103,7 +103,7 @@ def arima_baseline(raw_df: pd.DataFrame, results_df: pd.DataFrame, test_start: s
         fit = model.fit()
         forecast = np.clip(fit.forecast(steps=24), 0, None)
 
-        actual = results_df[results_df["date"] == test_day]["actual"].values
+        actual = results_df[pd.to_datetime(results_df["date"]).dt.date == test_day.date()]["actual"].values
 
         if len(actual) != 24:
             continue
