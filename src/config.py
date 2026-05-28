@@ -71,7 +71,10 @@ class ResidualsConfig:
     window_size:list[int] = field(default_factory=lambda: [7,14,30,60,90])
 
 
-
+@dataclass
+class ControlConfig:
+    """General control algorithm """
+    
 
 # Global configuration instances
 file_config = FileConfig()
