@@ -74,10 +74,22 @@ class ResidualsConfig:
 @dataclass
 class ControlConfig:
     """General control algorithm """
-    
+    max_charge_rate: float = 3.6
+    max_discharge_rate: float = 3.6
+    max_import_rate: float = 3.6
+    max_export_rate: float = 3.6
+    max_soc:float = 0.8
+    min_soc:float = 0.2
+    battery_capacity:float = 10.0 # kWh
+    q10_weight:float = 0.5
+    q90_weight:float = 1
+
+
+
 
 # Global configuration instances
 file_config = FileConfig()
 tft_config = TFTConfig()
 residuals_config = ResidualsConfig()
+control_config = ControlConfig()
 
