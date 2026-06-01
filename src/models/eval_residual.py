@@ -90,7 +90,7 @@ def naive_baseline(results: pd.DataFrame) -> np.ndarray:
     """return persistent naive baseline"""
     return results["actual"].shift(24).fillna(0).values
 
-def arima_baseline(raw_df: pd.DataFrame, results_df: pd.DataFrame, test_start: str = "2023-10-01") -> pd.DataFrame:
+def arima_baseline(raw_df: pd.DataFrame, results_df: pd.DataFrame, test_start: str = "2023-01-01") -> pd.DataFrame:
     # use raw df for pre-October history
     train = raw_df[raw_df["time"] < pd.Timestamp(test_start)]["P_norm"].values
     history = list(train)
