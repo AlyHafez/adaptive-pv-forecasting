@@ -96,40 +96,47 @@ def naive_baseline(results: pd.DataFrame) -> np.ndarray:
     """return persistent naive baseline"""
     return results["actual"].shift(24).fillna(0).values
 
-def arima_baseline(raw_df: pd.DataFrame, results_df: pd.DataFrame, test_start: str = "2023-01-01") -> pd.DataFrame:
-    # use raw df for pre-October history
-    train = raw_df[raw_df["time"] < pd.Timestamp(test_start)]["P_norm"].values
-    history = list(train)
-    test_dates = sorted(results_df["date"].unique())
-    all_results = []
-
-    for test_day in test_dates:
-        logging.info(f"ARIMA processing {test_day.date()}")
-        model = ARIMA(history, order=(2, 0, 1))
-        fit = model.fit()
-        forecast = np.clip(fit.forecast(steps=24), 0, None)
-
-        day_mask = pd.to_datetime(results_df["date"]).dt.date == test_day.date()
-        day_df = results_df[day_mask]
-
-        actual = day_df["actual"].values
-
-        if len(actual) != 24:
+def arima_baseline(df, ensemble_results, window_days=30):
+    predictions = []
+    dates = []
+    daylights = []
+    
+    for test_day in pd.date_range("2023-01-01", "2023-12-31", freq="D"):
+        window_start = test_day - pd.Timedelta(days=window_days)
+        
+        history = df[
+            (df["time"] >= window_start) & 
+            (df["time"] < test_day)
+        ]["P_norm"].values
+        
+        # fix - skip if not enough history
+        if len(history) < 48:  # need at least 2 days
+            logging.warning(f"Insufficient history for ARIMA on {test_day.date()}, skipping")
+            # append NaN placeholder so indices stay aligned
+            test_hours = df[df["time"].dt.date == test_day.date()]
+            predictions.extend([np.nan] * len(test_hours))
+            dates.extend(test_hours["time"].values)
+            daylights.extend(test_hours["daylight"].values)
             continue
-        daylight = day_df["daylight"].values if "daylight" in day_df.columns else np.zeros(24)
+        
+        logging.info(f"ARIMA processing {test_day.date()}")
+        
+        try:
+            model = ARIMA(history, order=(2, 0, 1))
+            fitted = model.fit()
+            forecast = fitted.forecast(steps=24)
+            forecast = np.clip(forecast, 0, None)
+        except Exception as e:
+            logging.warning(f"ARIMA failed on {test_day.date()}: {e}")
+            forecast = np.zeros(24)
+        
+        test_hours = df[df["time"].dt.date == test_day.date()]
+        predictions.extend(forecast[:len(test_hours)])
+        dates.extend(test_hours["time"].values)
+        daylights.extend(test_hours["daylight"].values)
+    
+    return np.array(predictions), np.array(dates), np.array(daylights)
 
-
-        history.extend(actual.tolist())
-        all_results.append(pd.DataFrame({
-            "actual": actual,
-            "arima_pred": forecast,
-            "date": test_day,
-            "daylight": daylight
-        }))
-
-        df = pd.concat(all_results, ignore_index=True)
-        df.to_csv(f"{file_config.results_dir}/arima_baseline.csv", index=False)
-    return df['arima_pred'].values, df['date'].values, df['daylight'].values
 def ensemble_residuals(predictions: dict, window_sizes:list, method:list)-> pd.DataFrame:
     """
     group each residual with different sizes and average their corrections to achieve ensemble correction
@@ -224,18 +231,26 @@ if __name__ == "__main__":
     ensemble_results = ensemble_residuals(results_per_window, residuals_config.window_size, "inverse_rmse")
     ensemble_metrics = compute_metrics(ensemble_results, "corrected_median")
     ensemble_results.to_csv(f"{file_config.results_dir}/{rolling_file}_ensemble.csv", index= False)
-    tft_metrics = compute_metrics(results, "tft_pred")
+    tft_metrics = compute_metrics(ensemble_results, "tft_pred")
 
     logging.info(f"ensemble MAE: {ensemble_metrics['MAE']:.4f}")
     logging.info(f"ensemble RMSE: {ensemble_metrics['RMSE']:.4f}")
-    results["naive"] = naive_baseline(results)
-    naive_metrics = compute_metrics(results, "naive")
+    ensemble_results["naive"] = naive_baseline(ensemble_results)
+    naive_metrics = compute_metrics(ensemble_results, "naive")
 
-    results['arima_pred'], results['date'], results['daylight'] = arima_baseline(df, ensemble_results)
-    arima_daytime = results[results["date"].isin(
-        ensemble_results[ensemble_results["daylight"] == 1]["date"]
-    )] if "daylight" in results.columns else results
-    arima_metrics = compute_metrics(arima_daytime,"arima_pred")
+    arima_pred, arima_dates, arima_daylights = arima_baseline(df, ensemble_results)
+
+    # create temp df and merge
+    arima_df = pd.DataFrame({
+        "date": arima_dates,
+        "arima_pred": arima_pred,
+    })
+
+    ensemble_results = ensemble_results.merge(
+        arima_df, on="date", how="left"
+    )
+    arima_daytime = ensemble_results[ensemble_results["daylight"] == 1]
+    arima_metrics = compute_metrics(arima_daytime, "arima_pred")
     logging.info(f"ARIMA — MAE: {arima_metrics['MAE']:.4f}, RMSE: {arima_metrics['RMSE']:.4f}")
     wandb.log({"arima_mae": arima_metrics["MAE"], "arima_rmse": arima_metrics["RMSE"]})
     wandb.log({
@@ -250,11 +265,16 @@ if __name__ == "__main__":
     logging.info(f"Naive     — MAE: {naive_metrics['MAE']:.4f}, RMSE: {naive_metrics['RMSE']:.4f}")
     logging.info(f"TFT       — MAE: {tft_metrics['MAE']:.4f}, RMSE: {tft_metrics['RMSE']:.4f}")
     
-
-    results.to_csv((f"{file_config.results_dir}/predictions_rolling_finetuned_ensemble.csv"), index=False)
     
-    plot_predictions(ensemble_results, results["naive"], results["arima_pred"], "forecast_week", "ensemble residual", hours=168)
-    plot_predictions(ensemble_results.iloc[6000:], results["naive"][6000:], results["arima_pred"][6000:], "forecast_sep_week","ensemble_residual", hours=168)
+    ensemble_results.to_csv((f"{file_config.results_dir}/predictions_rolling_finetuned_ensemble.csv"), index=False)
+    logging.info("\n=== Final Metrics Summary ===")
+    logging.info(f"{'Model':<20} {'MAE':>8} {'RMSE':>8}")
+    logging.info(f"{'Naive':<20} {naive_metrics['MAE']:>8.4f} {naive_metrics['RMSE']:>8.4f}")
+    logging.info(f"{'ARIMA':<20} {arima_metrics['MAE']:>8.4f} {arima_metrics['RMSE']:>8.4f}")
+    logging.info(f"{'TFT':<20} {tft_metrics['MAE']:>8.4f} {tft_metrics['RMSE']:>8.4f}")
+    logging.info(f"{'TFT+Residual':<20} {ensemble_metrics['MAE']:>8.4f} {ensemble_metrics['RMSE']:>8.4f}")
+    plot_predictions(ensemble_results, ensemble_results["naive"], ensemble_results["arima_pred"], "forecast_week", "ensemble residual", hours=168)
+    plot_predictions(ensemble_results.iloc[6000:], ensemble_results["naive"][6000:], ensemble_results["arima_pred"][6000:], "forecast_sep_week","ensemble_residual", hours=168)
     
     wandb.finish()
     logging.info("Evaluation complete")
