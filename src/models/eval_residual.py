@@ -28,10 +28,11 @@ def load_residual_model() -> ResidualCorrector:
 
 
 
-def plot_predictions(results: pd.DataFrame, naive_pred: np.ndarray, name: str, corrector_type: str, hours: int = 168):
+def plot_predictions(results: pd.DataFrame, naive_pred: np.ndarray, arima_baseline: np.ndarray, name: str, corrector_type: str, hours: int = 168):
     """Plot actual vs TFT vs TFT+Residual with uncertainty bands using plotly."""
     r = results.iloc[:hours].copy()
     naive = naive_pred[:hours]
+    arima = arima_baseline[:hours]
     x = list(range(hours))
 
     fig = go.Figure()
@@ -72,6 +73,11 @@ def plot_predictions(results: pd.DataFrame, naive_pred: np.ndarray, name: str, c
     fig.add_trace(go.Scatter(
         x=x, y=naive,
         name="Naive Baseline", line=dict(color="green", width=1, dash="dash")
+    ))
+    # arima
+    fig.add_trace(go.Scatter(
+        x=x, y=arima,
+        name="ARIMA Baseline", line=dict(color="orange", width=1, dash="dash")
     ))
 
     fig.update_layout(
@@ -247,8 +253,8 @@ if __name__ == "__main__":
 
     results.to_csv((f"{file_config.results_dir}/predictions_rolling_finetuned_ensemble.csv"), index=False)
     
-    plot_predictions(ensemble_results, results["naive"], "forecast_week", "ensemble residual", hours=168)
-    plot_predictions(ensemble_results.iloc[6000:], results["naive"][6000:], "forecast_sep_week","ensemble_residual", hours=168)
+    plot_predictions(ensemble_results, results["naive"], results["arima_pred"], "forecast_week", "ensemble residual", hours=168)
+    plot_predictions(ensemble_results.iloc[6000:], results["naive"][6000:], results["arima_pred"][6000:], "forecast_sep_week","ensemble_residual", hours=168)
     
     wandb.finish()
     logging.info("Evaluation complete")
