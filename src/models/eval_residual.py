@@ -247,8 +247,8 @@ if __name__ == "__main__":
 
     results.to_csv((f"{file_config.results_dir}/predictions_rolling_finetuned_ensemble.csv"), index=False)
     
-    plot_predictions(ensemble_results, results["naive"], "forecast_oct_week", "ensemble residual", hours=168)
-    plot_predictions(ensemble_results.iloc[1000:], results["naive"][1000:], "forecast_dec_week","ensemble_residual", hours=168)
+    plot_predictions(ensemble_results, results["naive"], "forecast_week", "ensemble residual", hours=168)
+    plot_predictions(ensemble_results.iloc[6000:], results["naive"][6000:], "forecast_sep_week","ensemble_residual", hours=168)
     
     wandb.finish()
     logging.info("Evaluation complete")

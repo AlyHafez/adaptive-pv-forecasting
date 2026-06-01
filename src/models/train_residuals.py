@@ -111,7 +111,7 @@ def rolling_window_evaluation(
     all_results = []
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    for test_day in pd.date_range("2023-10-01", "2023-12-31", freq="D"):
+    for test_day in pd.date_range("2023-01-01", "2023-12-31", freq="D"):
         # get window before test day
         window_start = test_day - pd.Timedelta(days=window_days)
         window_df = df[

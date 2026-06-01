@@ -1,6 +1,7 @@
 import pandas as pd # type: ignore[import]
 import logging # type: ignore[import]
 import wandb # type: ignore
+import numpy as np # type: ignore[import]
 import sys
 import numpy as np # type: ignore[import]
 from pytorch_forecasting import TemporalFusionTransformer, TimeSeriesDataSet # type: ignore[import]
