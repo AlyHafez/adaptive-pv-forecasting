@@ -141,12 +141,12 @@ def ensemble_residuals(predictions: dict, window_sizes:list, method:list)-> pd.D
     tft_lower = predictions[window_sizes[0]]["tft_lower"].values
     actual = predictions[window_sizes[0]]["actual"].values
     daylight = predictions[window_sizes[0]]["daylight"].values
-    if method == "inverse_mae":
-        maes = np.array([compute_metrics(predictions[win],
-                         "corrected_median")["MAE"]
+    if method == "inverse_rmse":
+        rmses = np.array([compute_metrics(predictions[win],
+                         "corrected_median")["RMSE"]
                          for win in window_sizes])
-        w = (1 / maes) / (1 / maes).sum()
-        
+        w = (1 / rmses) / (1 / rmses).sum()
+
 
 
     else: 
@@ -215,7 +215,7 @@ if __name__ == "__main__":
         })
         logging.info(f"window_{window} - MAE: {corrected_metrics['MAE']:.4f}, RMSE: {corrected_metrics['RMSE']:.4f}")
 
-    ensemble_results = ensemble_residuals(results_per_window, residuals_config.window_size, "inverse_mae")
+    ensemble_results = ensemble_residuals(results_per_window, residuals_config.window_size, "inverse_rmse")
     ensemble_metrics = compute_metrics(ensemble_results, "corrected_median")
     ensemble_results.to_csv(f"{file_config.results_dir}/{rolling_file}_ensemble.csv", index= False)
     tft_metrics = compute_metrics(results, "tft_pred")
