@@ -81,8 +81,11 @@ class ControlConfig:
     max_soc:float = 0.8
     min_soc:float = 0.2
     battery_capacity:float = 10.0 # kWh
-    q10_weight:float = 0.5
-    q90_weight:float = 1
+    beta:float = 0.05 # probability constraint for chance-constrained MPC
+    q10_weight:float = 0.25
+    q50_weight:float = 0.5
+    q90_weight:float = 0.25
+
 
 
 

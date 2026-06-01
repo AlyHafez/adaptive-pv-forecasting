@@ -4,9 +4,10 @@ import pandas as pd # type: ignore[import]
 import logging
 from src.config import file_config, residuals_config, control_config # type: ignore[import]
 from src.data.data_acquisition import get_pv_system # type: ignore[import]
+from scipy.stats import norm # type: ignore[import]
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 def mpc(max_charge_rate:float, max_discharge_rate:float, max_import_rate:float,
-         max_export_rate:float, H:int)->dict:
+         max_export_rate:float, H:int, back_off:np.ndarray)->dict:
     forecast_median = cp.Parameter(shape=H, name="forecast_median", nonneg=True)
     forecast_lower = cp.Parameter(shape=H, name="forecast_lower", nonneg=True)
     forecast_upper = cp.Parameter(shape=H, name="forecast_upper", nonneg=True)
@@ -14,51 +15,82 @@ def mpc(max_charge_rate:float, max_discharge_rate:float, max_import_rate:float,
     import_energy_price = cp.Parameter(shape = H, name="import_price", nonneg=True)
     export_energy_price = cp.Parameter(shape = H, name="export_price", nonneg=True)
 
-    charge = cp.Variable(H, name="charge", nonneg=True)
-    discharge = cp.Variable(H, name="discharge", nonneg=True)
-    import_energy = cp.Variable(H, name="import_energy", nonneg=True)
-    export_energy = cp.Variable(H, name="export_energy", nonneg=True)
-    soc = cp.Variable(H+1, name="soc", nonneg=True)
-    is_charging  = cp.Variable(H, boolean=True)  # 1=charging, 0=discharging
-    is_importing = cp.Variable(H, boolean=True)  # 1=importing, 0=exporting
+    # Shared action variables (here-and-now decisions)
+
+    charge = cp.Variable(H, nonneg=True)
+    discharge = cp.Variable(H, nonneg=True)
+    is_charging  = cp.Variable(H,   boolean=True)
+
+
+    # Scenario-specific recourse variables
+    import_q10 = cp.Variable(H, nonneg=True, name="import_q10")
+    import_q50 = cp.Variable(H, nonneg=True, name="import_q50")
+    import_q90 = cp.Variable(H, nonneg=True, name="import_q90")
+    export_q10 = cp.Variable(H, nonneg=True, name="export_q10")
+    export_q50 = cp.Variable(H, nonneg=True, name="export_q50")
+    export_q90 = cp.Variable(H, nonneg=True, name="export_q90")
+
+    is_importing_q10 = cp.Variable(H, boolean=True)
+    is_importing_q50 = cp.Variable(H, boolean=True)
+    is_importing_q90 = cp.Variable(H, boolean=True)
+    soc_q10       = cp.Variable(H+1, nonneg=True)
+    soc_q50       = cp.Variable(H+1, nonneg=True)
+    soc_q90       = cp.Variable(H+1, nonneg=True)
+
+
+ 
 
     constraints = []
     constraints += [
         # initial SOC
-        soc[0] == soc_value,
+        soc_q10[0] == soc_value,
+        soc_q50[0] == soc_value,
+        soc_q90[0] == soc_value,
         
         # SOC dynamics
-        soc[1:] == soc[:-1] + (charge - discharge) / control_config.battery_capacity,
+        soc_q10[1:] == soc_q10[:-1] + (charge - discharge) / control_config.battery_capacity,
+        soc_q50[1:] == soc_q50[:-1] + (charge - discharge) / control_config.battery_capacity,
+        soc_q90[1:] == soc_q90[:-1] + (charge - discharge) / control_config.battery_capacity,
         
         # SOC limits over horizon
-        soc >= control_config.min_soc,
-        soc <= control_config.max_soc,
-        
-        # energy balance
-        forecast_median + import_energy + discharge == export_energy + charge,
-        
+        soc_q10[1:] >= control_config.min_soc + back_off,  # don't go too low
+        soc_q50[1:] >= control_config.min_soc + back_off,  # don't go too low
+        soc_q90[1:] >= control_config.min_soc + back_off,  # don't go too low
+        soc_q10[1:] <= control_config.max_soc - back_off,  # don't go too high
+        soc_q50[1:] <= control_config.max_soc - back_off,  # don't go too high
+        soc_q90[1:] <= control_config.max_soc - back_off,  # don't go too high
 
-        
-        # charge/discharge mutex
+        forecast_lower  + import_q10 + discharge == export_q10 + charge,
+        forecast_median + import_q50 + discharge == export_q50 + charge,
+        forecast_upper  + import_q90 + discharge == export_q90 + charge,
+
+        # mutex - mode shared
         charge    <= max_charge_rate    * is_charging,
+  
         discharge <= max_discharge_rate * (1 - is_charging),
-        
-        # import/export mutex
-        import_energy <= max_import_rate * is_importing,
-        export_energy <= max_export_rate * (1 - is_importing),
+
+        import_q10    <= max_import_rate    * is_importing_q10,
+        import_q50    <= max_import_rate    * is_importing_q50,
+        import_q90    <= max_import_rate    * is_importing_q90,
+        export_q10    <= max_export_rate    * (1 - is_importing_q10),
+        export_q50    <= max_export_rate    * (1 - is_importing_q50),
+        export_q90    <= max_export_rate    * (1 - is_importing_q90),
     ]
+    
     objective = cp.Maximize(
-        cp.sum(cp.multiply(export_energy, export_energy_price))
-        - cp.sum(cp.multiply(import_energy, import_energy_price))
-        - control_config.q10_weight * (
-            cp.sum(cp.multiply(forecast_median, export_energy_price))
-            - cp.sum(cp.multiply(forecast_lower, export_energy_price))
+            control_config.q10_weight * (
+                cp.sum(cp.multiply(export_q10, export_energy_price))
+                - cp.sum(cp.multiply(import_q10, import_energy_price))
+            )
+            + control_config.q50_weight * (
+                cp.sum(cp.multiply(export_q50, export_energy_price))
+                - cp.sum(cp.multiply(import_q50, import_energy_price))
+            )
+            + control_config.q90_weight * (
+                cp.sum(cp.multiply(export_q90, export_energy_price))
+                - cp.sum(cp.multiply(import_q90, import_energy_price))
+            )
         )
-        + control_config.q90_weight * (
-            cp.sum(cp.multiply(forecast_upper, export_energy_price))
-            - cp.sum(cp.multiply(forecast_median, export_energy_price))
-        )
-    )
 
     problem = cp.Problem(objective, constraints)
     return {
@@ -69,11 +101,11 @@ def mpc(max_charge_rate:float, max_discharge_rate:float, max_import_rate:float,
         "soc_init":         soc_value,
         "import_price":     import_energy_price,
         "export_price":     export_energy_price,
-        "charge":           charge,
+        "charge":           charge,    # execute Q50
         "discharge":        discharge,
-        "import_energy":    import_energy,
-        "export_energy":    export_energy,
-        "soc":              soc,
+        "import_energy":    import_q50,
+        "export_energy":    export_q50,
+        "soc":              soc_q50,
     }
 
 def run_mpc(mpc:dict, t:int, results: pd.DataFrame, import_prices: np.ndarray, export_prices: np.ndarray, current_soc: float, H: int, forecast_type: str = "probabilistic", is_residual: bool = True, point_forecast:str = "tft", kwp: float = 1.0)->dict:
@@ -135,19 +167,61 @@ def run_mpc(mpc:dict, t:int, results: pd.DataFrame, import_prices: np.ndarray, e
     else:
         logging.warning(f"t={t} status: {mpc['problem'].status}")
         raise ValueError(f"MPC optimization failed at time {t} with status {mpc['problem'].status}")
+
+def compute_back_off(results: pd.DataFrame, kwp: float, H: int, 
+                     forecast_type: str, is_residual: bool, 
+                     point_forecast: str) -> np.ndarray:
     
+    # get correct forecast column
+    if forecast_type == "probabilistic":
+        if is_residual:
+            pred_col = "corrected_median"
+        else:
+            pred_col = "tft_pred"
+    else:
+        if point_forecast == "tft":
+            pred_col = "tft_pred"
+        elif point_forecast == "arima":
+            pred_col = "arima_pred"
+        elif point_forecast == "persistence":
+            pred_col = None  # handle separately
+    
+    if pred_col is None:
+        # persistence - use previous actual as forecast
+        forecast_errors = (results["actual"] - results["actual"].shift(1)) * kwp
+    else:
+        forecast_errors = (results["actual"] - results[pred_col]) * kwp
+    
+    Qw = forecast_errors.dropna().var()
+    z  = norm.ppf(1 - control_config.beta)
+    
+    back_off = np.array([
+        z * np.sqrt(i * Qw) / control_config.battery_capacity
+        for i in range(1, H+1)
+    ])
+    
+    max_back_off = (control_config.max_soc - control_config.min_soc) / 4
+    return np.clip(back_off, 0, max_back_off)
 def simulate_control(results: pd.DataFrame, initial_soc: float, H: int, forecast_type: str = "deterministic", is_residual: bool = True, point_forecast:str = "tft", kwp: float = 1.0)->pd.DataFrame:
     import_prices, export_prices = get_synthetic_prices(len(results))
+    
+    back_off = compute_back_off(results, kwp, H, forecast_type, is_residual, point_forecast)
+    
+    logging.info(f"back_off range: {back_off.min():.4f} to {back_off.max():.4f}")
+    
     mpc_controller = mpc(
         max_charge_rate=control_config.max_charge_rate,
         max_discharge_rate=control_config.max_discharge_rate,
         max_import_rate=control_config.max_import_rate,
         max_export_rate=control_config.max_export_rate,
-        H=H
+        H=H,
+        back_off=back_off  # pass in
     )
     current_soc = initial_soc
     control_actions = []
-    for t in range(len(results)-H):
+    start_t = 1 if point_forecast == "persistence" else 0
+
+    for t in range(start_t, len(results)-H):
         action = run_mpc(mpc_controller, t, results, import_prices, export_prices, current_soc, H, forecast_type, is_residual, point_forecast, kwp)
         
         actual_gen = results["actual"].values[t] *kwp
@@ -188,15 +262,20 @@ def get_synthetic_prices(n_steps: int) -> tuple[np.ndarray, np.ndarray]:
     
     return import_prices, export_prices
 
-
 if __name__ == "__main__":
-    _, _, _, kwp = get_pv_system() 
+    _, _, _, kwp = get_pv_system()
     results = pd.read_csv(f"{file_config.results_dir}/results/predictions_rolling_finetuned_ensemble.csv")
-    control_results = simulate_control(results, initial_soc=0.5, H=24, forecast_type="probabilistic", is_residual=True, point_forecast="correction", kwp=kwp)
-    total_revenue = control_results["actual_revenue"].sum()
-    logging.info(f"Total revenue: {total_revenue}")
-    control_results.to_csv(f"{file_config.results_dir}/control_simulation.csv", index=False)
-    print("Are medians identical?", (results["corrected_median"] == results["tft_pred"]).all())
-    control_results_tft = simulate_control(results, initial_soc=0.5, H=24, forecast_type="probabilistic", is_residual=False, point_forecast="tft", kwp=kwp)
-    total_revenue = control_results_tft["actual_revenue"].sum()
-    logging.info(f"Total revenue TFT: {total_revenue}")
+    
+    scenarios = {
+        "persistence":  dict(forecast_type="point",         is_residual=False, point_forecast="persistence"),
+        "arima":        dict(forecast_type="point",         is_residual=False, point_forecast="arima"),
+        "tft_point":    dict(forecast_type="point",         is_residual=False, point_forecast="tft"),
+        "tft_prob":     dict(forecast_type="probabilistic", is_residual=False, point_forecast="tft"),
+        "tft_residual": dict(forecast_type="probabilistic", is_residual=True,  point_forecast="tft"),
+    }
+    
+    for name, kwargs in scenarios.items():
+        logging.info(f"Running scenario: {name}")
+        df = simulate_control(results, initial_soc=0.5, H=24, kwp=kwp, **kwargs)
+        logging.info(f"{name}: planned=£{df['planned_revenue'].sum():.4f} actual=£{df['actual_revenue'].sum():.4f}")
+        df.to_csv(f"{file_config.results_dir}/control_{name}.csv", index=False)

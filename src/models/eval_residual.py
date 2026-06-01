@@ -121,7 +121,9 @@ def arima_baseline(raw_df: pd.DataFrame, results_df: pd.DataFrame, test_start: s
             "daylight": daylight
         }))
 
-    return pd.concat(all_results, ignore_index=True)
+        df = pd.concat(all_results, ignore_index=True)
+        df.to_csv(f"{file_config.results_dir}/arima_baseline.csv", index=False)
+    return df['arima_pred'].values, df['date'].values, df['daylight'].values
 def ensemble_residuals(predictions: dict, window_sizes:list, method:list)-> pd.DataFrame:
     """
     group each residual with different sizes and average their corrections to achieve ensemble correction
@@ -223,11 +225,11 @@ if __name__ == "__main__":
     results["naive"] = naive_baseline(results)
     naive_metrics = compute_metrics(results, "naive")
 
-    arima_results = arima_baseline(df, ensemble_results)
-    arima_daytime = arima_results[arima_results["date"].isin(
+    results['arima_pred'], results['date'], results['daylight'] = arima_baseline(df, ensemble_results)
+    arima_daytime = results[results["date"].isin(
         ensemble_results[ensemble_results["daylight"] == 1]["date"]
-    )] if "daylight" in arima_results.columns else arima_results
-    arima_metrics = compute_metrics(arima_results,"arima_pred")
+    )] if "daylight" in results.columns else results
+    arima_metrics = compute_metrics(arima_daytime,"arima_pred")
     logging.info(f"ARIMA — MAE: {arima_metrics['MAE']:.4f}, RMSE: {arima_metrics['RMSE']:.4f}")
     wandb.log({"arima_mae": arima_metrics["MAE"], "arima_rmse": arima_metrics["RMSE"]})
     wandb.log({
@@ -243,7 +245,7 @@ if __name__ == "__main__":
     logging.info(f"TFT       — MAE: {tft_metrics['MAE']:.4f}, RMSE: {tft_metrics['RMSE']:.4f}")
     
 
-
+    results.to_csv((f"{file_config.results_dir}/results/predictions_rolling_finetuned_ensemble.csv"), index=False)
     
     plot_predictions(ensemble_results, results["naive"], "forecast_oct_week", "ensemble residual", hours=168)
     plot_predictions(ensemble_results.iloc[1000:], results["naive"][1000:], "forecast_dec_week","ensemble_residual", hours=168)
