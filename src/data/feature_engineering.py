@@ -56,7 +56,7 @@ def prepare_ukpv_as_pvgis(
         weather_df,
         on="time",
         how="inner"
-    )
+    ) 
 
     # rename to match PVGIS column names exactly
     df = df.rename(columns={
@@ -77,6 +77,7 @@ def prepare_ukpv_as_pvgis(
     # keep only PVGIS columns
     cols = ["time", "P", "Gb(i)", "Gd(i)", "Gr(i)", "H_sun", "T2m", "WS10m"]
     return df[cols].dropna().reset_index(drop=True)
+
 
 
 if __name__ == "__main__":

@@ -2,10 +2,12 @@ import pandas as pd # type: ignore[import]
 import logging # type: ignore[import]
 import wandb # type: ignore
 import sys
+import numpy as np # type: ignore[import]
 from pytorch_forecasting import TemporalFusionTransformer, TimeSeriesDataSet # type: ignore[import]
 from src.models.dataset import split_data, create_dataset, dataloader
 from src.config import file_config, tft_config
 from src.utils.utils import wandb_login
+
 
 logging.basicConfig(level=logging.INFO)
 def load_model(checkpoint_path: str) -> TemporalFusionTransformer:
@@ -38,9 +40,26 @@ def evaluate_tft(best_model: TemporalFusionTransformer, test_dataloader: TimeSer
 
     return predictions
 
+def simulate_drift(df:pd.DataFrame, drift_magnitude: float, drift_start:pd.Timestamp)-> pd.DataFrame:
+    """Simulate a drift in the target variable by adding a time-varying bias.
+    Args:
+        df (pd.DataFrame): The input dataframe containing the original data.
+        drift_magnitude (float): The maximum magnitude of the drift to simulate.
+        drift_start (datetime): The start time of the drift.
+    Returns:
+        pd.DataFrame: A new dataframe with the simulated drift added to the target variable."""
+    df_drifted = df.copy()
+    times = df["time"]
+    drift_idx = (times >= drift_start).argmax()  # index where drift starts
+    n = len(df) - drift_idx
 
+    drift = np.ones(len(df))
+    drift[drift_idx:] = np.linspace(1.0, 1.0 - drift_magnitude, n)
+    df_drifted["P_norm"] = df["P_norm"]*drift
+    logging.info(f"Drift starts at {drift_start} (index {drift_idx})")
+    logging.info(f"Final drift factor: {drift[-1]:.3f} ({drift_magnitude*100:.0f}% reduction)")
+    return df_drifted
 
-    
 if __name__ == "__main__":
     wandb_login()
     
@@ -65,6 +84,7 @@ if __name__ == "__main__":
     wandb.init(project="pv-forecasting", name=run_name) #type: ignore 
     
     data = pd.read_parquet(file_config.data_path)
+    
     train_data, val_data, _ = split_data(data)
     training_dataset = create_dataset(train_data, tft_config.max_encoder_length, tft_config.max_prediction_length)
     best_model = load_model(checkpoint_path)
@@ -90,6 +110,7 @@ if __name__ == "__main__":
 
     else:  # ukpv_finetuned or ukpv_pretrained
         ukpv_df = pd.read_parquet(file_config.test_set)
+        ukpv_df = simulate_drift(ukpv_df, drift_magnitude=0.25, drift_start=pd.Timestamp("2023-06-01 00:00:00"))
         ukpv_df["series_id"] = ukpv_df["location"]
         ukpv_df = ukpv_df.reset_index(drop=True)
         ukpv_df["time_idx"] = range(len(ukpv_df))

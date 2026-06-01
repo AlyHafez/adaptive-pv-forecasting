@@ -268,7 +268,6 @@ if __name__ == "__main__":
     
     scenarios = {
         "persistence":  dict(forecast_type="point",         is_residual=False, point_forecast="persistence"),
-        "arima":        dict(forecast_type="point",         is_residual=False, point_forecast="arima"),
         "tft_point":    dict(forecast_type="point",         is_residual=False, point_forecast="tft"),
         "tft_prob":     dict(forecast_type="probabilistic", is_residual=False, point_forecast="tft"),
         "tft_residual": dict(forecast_type="probabilistic", is_residual=True,  point_forecast="tft"),
@@ -277,5 +276,6 @@ if __name__ == "__main__":
     for name, kwargs in scenarios.items():
         logging.info(f"Running scenario: {name}")
         df = simulate_control(results, initial_soc=0.5, H=24, kwp=kwp, **kwargs)
+        logging.info(df[["charge","discharge","actual_export","actual_import","actual_revenue"]].sum())
         logging.info(f"{name}: planned=£{df['planned_revenue'].sum():.4f} actual=£{df['actual_revenue'].sum():.4f}")
         df.to_csv(f"{file_config.results_dir}/control_{name}.csv", index=False)
