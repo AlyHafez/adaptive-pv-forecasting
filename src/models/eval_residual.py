@@ -200,11 +200,23 @@ if __name__ == "__main__":
         predictions_file = "predictions_ukpv_finetuned.csv"
         rolling_file = "predictions_rolling_finetuned.csv"
         metrics_prefix = "finetuned"
-    else:
+    elif mode == "pretrained":
         run_name = "residual-evaluation-pretrained"
         predictions_file = "predictions_ukpv_pretrained.csv"
         rolling_file = "predictions_rolling_pretrained.csv"
         metrics_prefix = "pretrained"
+    elif mode == "finetuned_drifted":
+        run_name = "residual-evaluation-finetuned-drifted"
+        predictions_file = "predictions_ukpv_finetuned_drifted.csv"
+        rolling_file = "predictions_rolling_finetuned_drifted.csv"
+        metrics_prefix = "finetuned_drifted"
+    elif mode == "pretrained_drifted":
+        run_name = "residual-evaluation-pretrained-drifted"
+        predictions_file = "predictions_ukpv_pretrained_drifted.csv"
+        rolling_file = "predictions_rolling_pretrained_drifted.csv"
+        metrics_prefix = "pretrained_drifted"
+    else:
+        raise ValueError(f"Unknown mode: {mode}")
 
     wandb.init(project="pv-forecasting", name=run_name)
     

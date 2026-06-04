@@ -79,6 +79,14 @@ if __name__ == "__main__":
         checkpoint_path = file_config.tft_checkpoint_path
         output_file = "predictions_ukpv_pretrained.csv"
         run_name = "eval-ukpv-pretrained"
+    elif mode == "ukpv_finetuned_drifted":
+        checkpoint_path =file_config.fine_tuned_path
+        output_file = "predictions_ukpv_finetuned_drifted.csv"
+        run_name = "eval-ukpv-finetuned-drifted"
+    elif mode == "ukpv_pretrained_drifted":
+        checkpoint_path = file_config.tft_checkpoint_path
+        output_file = "predictions_ukpv_pretrained_drifted.csv"
+        run_name = "eval-ukpv-pretrained-drifted"
     else:
         raise ValueError(f"Unknown mode: {mode}")
 
@@ -111,7 +119,8 @@ if __name__ == "__main__":
 
     else:  # ukpv_finetuned or ukpv_pretrained
         ukpv_df = pd.read_parquet(file_config.test_set)
-        ukpv_df = simulate_drift(ukpv_df, drift_magnitude=0.25, drift_start=pd.Timestamp("2023-06-01 00:00:00"))
+        if mode in ["ukpv_finetuned_drifted", "ukpv_pretrained_drifted"]:
+            ukpv_df = simulate_drift(ukpv_df, drift_magnitude=0.25, drift_start=pd.Timestamp("2023-06-01 00:00:00"))
         ukpv_df["series_id"] = ukpv_df["location"]
         ukpv_df = ukpv_df.reset_index(drop=True)
         ukpv_df["time_idx"] = range(len(ukpv_df))
