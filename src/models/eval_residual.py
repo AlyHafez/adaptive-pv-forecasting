@@ -137,7 +137,7 @@ def arima_baseline(df, ensemble_results, window_days=30):
     
     return np.array(predictions), np.array(dates), np.array(daylights)
 
-def ensemble_residuals(predictions: dict, window_sizes:list, method:list)-> pd.DataFrame:
+def ensemble_residuals(predictions: dict, window_sizes:list, method:str)-> pd.DataFrame:
     """
     group each residual with different sizes and average their corrections to achieve ensemble correction
 
@@ -199,28 +199,36 @@ if __name__ == "__main__":
         run_name = "residual-evaluation-finetuned"
         predictions_file = "predictions_ukpv_finetuned.csv"
         rolling_file = "predictions_rolling_finetuned.csv"
+        ensemble_file = "predictions_rolling_finetuned_ensemble.csv"
+        truth_path = file_config.test_set
         metrics_prefix = "finetuned"
     elif mode == "pretrained":
         run_name = "residual-evaluation-pretrained"
         predictions_file = "predictions_ukpv_pretrained.csv"
         rolling_file = "predictions_rolling_pretrained.csv"
+        ensemble_file = "predictions_rolling_pretrained_ensemble.csv"
+        truth_path = file_config.test_set
         metrics_prefix = "pretrained"
     elif mode == "finetuned_drifted":
         run_name = "residual-evaluation-finetuned-drifted"
         predictions_file = "predictions_ukpv_finetuned_drifted.csv"
         rolling_file = "predictions_rolling_finetuned_drifted.csv"
+        ensemble_file = "predictions_rolling_finetuned_drifted_ensemble.csv"
+        truth_path = file_config.test_set_drifted
         metrics_prefix = "finetuned_drifted"
     elif mode == "pretrained_drifted":
         run_name = "residual-evaluation-pretrained-drifted"
         predictions_file = "predictions_ukpv_pretrained_drifted.csv"
         rolling_file = "predictions_rolling_pretrained_drifted.csv"
+        ensemble_file = "predictions_rolling_pretrained_drifted_ensemble.csv"
+        truth_path = file_config.test_set_drifted
         metrics_prefix = "pretrained_drifted"
     else:
         raise ValueError(f"Unknown mode: {mode}")
 
     wandb.init(project="pv-forecasting", name=run_name)
     
-    df = pd.read_parquet(file_config.test_set)
+    df = pd.read_parquet(truth_path)
     predictions_df = pd.read_csv(f"{file_config.results_dir}/{predictions_file}")
     results_per_window = {}
     window_mae = {}
@@ -242,7 +250,7 @@ if __name__ == "__main__":
 
     ensemble_results = ensemble_residuals(results_per_window, residuals_config.window_size, "inverse_rmse")
     ensemble_metrics = compute_metrics(ensemble_results, "corrected_median")
-    ensemble_results.to_csv(f"{file_config.results_dir}/{rolling_file}_ensemble.csv", index= False)
+
     tft_metrics = compute_metrics(ensemble_results, "tft_pred")
 
     logging.info(f"ensemble MAE: {ensemble_metrics['MAE']:.4f}")
@@ -278,7 +286,7 @@ if __name__ == "__main__":
     logging.info(f"TFT       — MAE: {tft_metrics['MAE']:.4f}, RMSE: {tft_metrics['RMSE']:.4f}")
     
     
-    ensemble_results.to_csv((f"{file_config.results_dir}/predictions_rolling_finetuned_ensemble.csv"), index=False)
+    ensemble_results.to_csv((f"{file_config.results_dir}/{ensemble_file}"), index=False)
     logging.info("\n=== Final Metrics Summary ===")
     logging.info(f"{'Model':<20} {'MAE':>8} {'RMSE':>8}")
     logging.info(f"{'Naive':<20} {naive_metrics['MAE']:>8.4f} {naive_metrics['RMSE']:>8.4f}")
@@ -286,7 +294,12 @@ if __name__ == "__main__":
     logging.info(f"{'TFT':<20} {tft_metrics['MAE']:>8.4f} {tft_metrics['RMSE']:>8.4f}")
     logging.info(f"{'TFT+Residual':<20} {ensemble_metrics['MAE']:>8.4f} {ensemble_metrics['RMSE']:>8.4f}")
     plot_predictions(ensemble_results, ensemble_results["naive"], ensemble_results["arima_pred"], "forecast_week", "ensemble residual", hours=168)
-    plot_predictions(ensemble_results.iloc[6000:], ensemble_results["naive"][6000:], ensemble_results["arima_pred"][6000:], "forecast_sep_week","ensemble_residual", hours=168)
+    plot_predictions(
+        ensemble_results.iloc[6000:],
+        ensemble_results["naive"].iloc[6000:].values,
+        ensemble_results["arima_pred"].iloc[6000:].values,
+        "forecast_sep_week", "ensemble_residual", hours=168
+    )
     
     wandb.finish()
     logging.info("Evaluation complete")

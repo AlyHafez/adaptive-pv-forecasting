@@ -3,7 +3,7 @@ import logging # type: ignore[import]
 import wandb # type: ignore
 import numpy as np # type: ignore[import]
 import sys
-import numpy as np # type: ignore[import]
+
 from pytorch_forecasting import TemporalFusionTransformer, TimeSeriesDataSet # type: ignore[import]
 from src.models.dataset import split_data, create_dataset, dataloader
 from src.config import file_config, tft_config
@@ -121,6 +121,7 @@ if __name__ == "__main__":
         ukpv_df = pd.read_parquet(file_config.test_set)
         if mode in ["ukpv_finetuned_drifted", "ukpv_pretrained_drifted"]:
             ukpv_df = simulate_drift(ukpv_df, drift_magnitude=0.25, drift_start=pd.Timestamp("2023-06-01 00:00:00"))
+            ukpv_df.to_parquet(f"{file_config.test_set_drifted}", index=False)
         ukpv_df["series_id"] = ukpv_df["location"]
         ukpv_df = ukpv_df.reset_index(drop=True)
         ukpv_df["time_idx"] = range(len(ukpv_df))

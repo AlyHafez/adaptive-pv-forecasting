@@ -16,6 +16,7 @@ class FileConfig:
     data_path: str = os.path.join(processed_data_dir, "pvgis_all.parquet")
     fine_tuning_households:str = os.path.join(processed_data_dir,"ukpv_london_tft.parquet")
     test_set:str = os.path.join(processed_data_dir, "ukpv_london_test_household.parquet")
+    test_set_drifted:str = os.path.join(processed_data_dir, "ukpv_london_test_household_drifted.parquet")
     results_dir: str = os.path.join(base_dir, "results")
     models_dir: str = os.path.join(results_dir, "models")
     tft_models_dir: str = os.path.join(models_dir, "tft")
