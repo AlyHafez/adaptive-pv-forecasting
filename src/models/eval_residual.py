@@ -282,17 +282,17 @@ if __name__ == "__main__":
         "ensemble_rmse": ensemble_metrics["RMSE"],
     })
 
-    logging.info(f"Naive     — MAE: {naive_metrics['MAE']:.4f}, RMSE: {naive_metrics['RMSE']:.4f}")
-    logging.info(f"TFT       — MAE: {tft_metrics['MAE']:.4f}, RMSE: {tft_metrics['RMSE']:.4f}")
+    logging.info(f"Naive     — MAE: {naive_metrics['MAE']:.4f}, RMSE: {naive_metrics['RMSE']:.4f}, NRMSE: {naive_metrics['NRMSE']:.4f}")
+    logging.info(f"TFT       — MAE: {tft_metrics['MAE']:.4f}, RMSE: {tft_metrics['RMSE']:.4f}, NRMSE: {tft_metrics['NRMSE']:.4f}")
     
     
     ensemble_results.to_csv((f"{file_config.results_dir}/{ensemble_file}"), index=False)
     logging.info("\n=== Final Metrics Summary ===")
-    logging.info(f"{'Model':<20} {'MAE':>8} {'RMSE':>8}")
-    logging.info(f"{'Naive':<20} {naive_metrics['MAE']:>8.4f} {naive_metrics['RMSE']:>8.4f}")
-    logging.info(f"{'ARIMA':<20} {arima_metrics['MAE']:>8.4f} {arima_metrics['RMSE']:>8.4f}")
-    logging.info(f"{'TFT':<20} {tft_metrics['MAE']:>8.4f} {tft_metrics['RMSE']:>8.4f}")
-    logging.info(f"{'TFT+Residual':<20} {ensemble_metrics['MAE']:>8.4f} {ensemble_metrics['RMSE']:>8.4f}")
+    logging.info(f"{'Model':<20} {'MAE':>8} {'RMSE':>8} {'NRMSE':>8}")
+    logging.info(f"{'Naive':<20} {naive_metrics['MAE']:>8.4f} {naive_metrics['RMSE']:>8.4f} {naive_metrics['NRMSE']:>8.4f}")
+    logging.info(f"{'ARIMA':<20} {arima_metrics['MAE']:>8.4f} {arima_metrics['RMSE']:>8.4f} {arima_metrics['NRMSE']:>8.4f}")
+    logging.info(f"{'TFT':<20} {tft_metrics['MAE']:>8.4f} {tft_metrics['RMSE']:>8.4f} {tft_metrics['NRMSE']:>8.4f}")
+    logging.info(f"{'TFT+Residual':<20} {ensemble_metrics['MAE']:>8.4f} {ensemble_metrics['RMSE']:>8.4f} {ensemble_metrics['NRMSE']:>8.4f}")
     plot_predictions(ensemble_results, ensemble_results["naive"], ensemble_results["arima_pred"], "forecast_week", "ensemble residual", hours=168)
     plot_predictions(
         ensemble_results.iloc[6000:],
