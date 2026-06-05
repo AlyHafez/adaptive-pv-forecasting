@@ -148,6 +148,18 @@ def ensemble_residuals(predictions: dict, window_sizes:list, method:str)-> pd.Da
     returns:
         results(pd.DataFrame): contains results and tft predictrions and ground truth
     """
+    common_dates = set(predictions[window_sizes[0]]["date"].astype(str))
+    for w in window_sizes[1:]:
+        common_dates &= set(predictions[w]["date"].astype(str))
+    logging.info(f"Common dates across all windows: {len(common_dates)} days")
+    
+    predictions = {
+        w: predictions[w][
+            predictions[w]["date"].astype(str).isin(common_dates)
+        ].reset_index(drop=True)
+        for w in window_sizes
+    }
+    
     corrections = np.array([predictions[w]["correction"].values for w in window_sizes])
     tft_median = predictions[window_sizes[0]]["tft_pred"].values
     tft_upper = predictions[window_sizes[0]]["tft_upper"].values
@@ -274,12 +286,18 @@ if __name__ == "__main__":
     logging.info(f"ARIMA — MAE: {arima_metrics['MAE']:.4f}, RMSE: {arima_metrics['RMSE']:.4f}")
     wandb.log({"arima_mae": arima_metrics["MAE"], "arima_rmse": arima_metrics["RMSE"]})
     wandb.log({
+        "arima_mae": arima_metrics["MAE"],
+        "arima_rmse": arima_metrics["RMSE"],
+        "arima_nrmse": arima_metrics["NRMSE"],
         "tft_mae": tft_metrics["MAE"],
         "tft_rmse": tft_metrics["RMSE"],
+        "tft_nrmse": tft_metrics["NRMSE"],
         "naive_mae": naive_metrics["MAE"],
         "naive_rmse": naive_metrics["RMSE"],
+        "naive_nrmse": naive_metrics["NRMSE"],
         "ensemble_mae": ensemble_metrics["MAE"],
         "ensemble_rmse": ensemble_metrics["RMSE"],
+        "ensemble_nrmse": ensemble_metrics["NRMSE"],
     })
 
     logging.info(f"Naive     — MAE: {naive_metrics['MAE']:.4f}, RMSE: {naive_metrics['RMSE']:.4f}, NRMSE: {naive_metrics['NRMSE']:.4f}")
