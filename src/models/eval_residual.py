@@ -255,6 +255,10 @@ if __name__ == "__main__":
     
     df = pd.read_parquet(truth_path)
     predictions_df = pd.read_csv(f"{file_config.results_dir}/{predictions_file}")
+    logging.info(f"predictions_df shape: {predictions_df.shape}")
+    logging.info(f"predictions_df time sample: {predictions_df['time'].head(5).values}")
+    logging.info(f"df shape: {df.shape}")
+  
     results_per_window = {}
     window_mae = {}
     window_rmse = {}
