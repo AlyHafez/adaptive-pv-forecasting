@@ -287,7 +287,7 @@ if __name__ == "__main__":
 
     # create temp df and merge
     arima_df = pd.DataFrame({
-        "date": pd.to_datetime(arima_dates).dt.date,
+        "date": pd.to_datetime(arima_dates).date,
         "arima_pred": arima_pred,
     })
 
