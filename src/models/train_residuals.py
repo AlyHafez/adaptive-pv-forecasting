@@ -167,9 +167,10 @@ def rolling_window_evaluation(
         if len(test_preds) != len(test_day_df):
             logging.warning(f"Incomplete predictions for {test_day.date()}: {len(test_preds)} vs {len(test_day_df)}, skipping")
             continue
-
+        
         day_results = evaluate_residuals(test_day_df, test_preds, model)
         day_results["date"] = test_day
+        day_results["time"] = test_day_df["time"].values 
         all_results.append(day_results)
         logging.info(f"Processed {test_day.date()}")
 

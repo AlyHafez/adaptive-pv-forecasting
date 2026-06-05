@@ -207,6 +207,7 @@ def ensemble_residuals(predictions: dict, window_sizes:list, method:str)-> pd.Da
         "correction": correction,
         "daylight": daylight,
         "date": predictions[window_sizes[0]]["date"].values,
+        "time": predictions[window_sizes[0]]["time"].values,
         
     })
     results["corrected_median"] = results["corrected_median"].clip(lower=0)
@@ -291,12 +292,12 @@ if __name__ == "__main__":
 
     # create temp df and merge
     arima_df = pd.DataFrame({
-        "date": pd.to_datetime(arima_dates).date,
+        "time": pd.to_datetime(arima_dates),
         "arima_pred": arima_pred,
     })
 
     ensemble_results = ensemble_results.merge(
-        arima_df, on="date", how="left"
+        arima_df, on="time", how="left"
     )
     arima_daytime = ensemble_results[ensemble_results["daylight"] == 1]
     arima_metrics = compute_metrics(arima_daytime, "arima_pred")
