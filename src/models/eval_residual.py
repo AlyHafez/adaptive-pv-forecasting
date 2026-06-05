@@ -148,17 +148,30 @@ def ensemble_residuals(predictions: dict, window_sizes:list, method:str)-> pd.Da
     returns:
         results(pd.DataFrame): contains results and tft predictrions and ground truth
     """
-    common_dates = set(predictions[window_sizes[0]]["date"].astype(str))
+    # normalise dates to date only before comparing
+    for w in window_sizes:
+        predictions[w] = predictions[w].copy()
+        predictions[w]["date"] = pd.to_datetime(predictions[w]["date"]).dt.date
+
+    common_dates = set(predictions[window_sizes[0]]["date"])
     for w in window_sizes[1:]:
-        common_dates &= set(predictions[w]["date"].astype(str))
+        common_dates &= set(predictions[w]["date"])
+
     logging.info(f"Common dates across all windows: {len(common_dates)} days")
-    
+    logging.info(f"Window lengths before filter: {[len(predictions[w]) for w in window_sizes]}")
+
     predictions = {
         w: predictions[w][
-            predictions[w]["date"].astype(str).isin(common_dates)
+            predictions[w]["date"].isin(common_dates)
         ].reset_index(drop=True)
         for w in window_sizes
     }
+
+    logging.info(f"Window lengths after filter: {[len(predictions[w]) for w in window_sizes]}")
+
+    # verify alignment before proceeding
+    lengths = [len(predictions[w]) for w in window_sizes]
+    assert len(set(lengths)) == 1, f"Still misaligned after filtering: {dict(zip(window_sizes, lengths))}"
     
     corrections = np.array([predictions[w]["correction"].values for w in window_sizes])
     tft_median = predictions[window_sizes[0]]["tft_pred"].values
