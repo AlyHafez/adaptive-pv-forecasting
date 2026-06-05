@@ -27,8 +27,8 @@ def nrmse(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     Returns:
         float: The calculated NRMSE value."""
     rmse_value = rmse(y_true, y_pred)
-    range_y = np.max(y_true) - np.min(y_true)
-    return rmse_value / range_y if range_y != 0 else float('inf')
+    mean_y = np.mean(y_true)
+    return rmse_value / mean_y if mean_y != 0 else float('inf')
 
 def mae(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     """Calculate the Mean Absolute Error (MAE) between true and predicted values.

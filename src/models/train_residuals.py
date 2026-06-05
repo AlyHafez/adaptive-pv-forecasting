@@ -110,27 +110,34 @@ def rolling_window_evaluation(
     """Rolling window evaluation — retrain MLP each day on last window_days of residuals."""
     all_results = []
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+    predictions_df = predictions_df.copy()
+    predictions_df["time"] = pd.to_datetime(predictions_df["time"])
+    predictions_df = predictions_df.merge(
+        df[["time", "daylight"]], on="time", how="left"
+    )
     for test_day in pd.date_range("2023-01-01", "2023-12-31", freq="D"):
         # get window before test day
         window_start = test_day - pd.Timedelta(days=window_days)
         window_df = df[
             (df["time"] >= window_start) & (df["time"] < test_day)
         ].reset_index(drop=True)
+        window_df = window_df[window_df["daylight"] == 1].reset_index(drop=True)
 
         if len(window_df) == 0:
             continue
 
         # get TFT predictions for window using positional index
         window_predictions = predictions_df[
-            pd.to_datetime(predictions_df["time"]).dt.date.between(
-                window_start.date(), (test_day - pd.Timedelta(hours=1)).date()
-            )
+        pd.to_datetime(predictions_df["time"]).dt.date.between(
+            window_start.date(), (test_day - pd.Timedelta(hours=1)).date()
+        ) & (predictions_df["daylight"] == 1)
         ][["median", "lower", "upper"]].values
         if len(window_predictions) == 0:
             logging.warning(f"No predictions for window ending {test_day.date()}, skipping")
             continue
-
+        if len(window_df) != len(window_predictions):
+            logging.warning(f"Length mismatch for window ending {test_day.date()}: "
+                f"df={len(window_df)}, preds={len(window_predictions)}, aligning")
         # align lengths
         min_len = min(len(window_df), len(window_predictions))
         window_df = window_df.iloc[-min_len:].reset_index(drop=True)
