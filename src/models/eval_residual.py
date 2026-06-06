@@ -249,6 +249,20 @@ if __name__ == "__main__":
         ensemble_file = "predictions_rolling_pretrained_drifted_ensemble.csv"
         truth_path = file_config.test_set_drifted
         metrics_prefix = "pretrained_drifted"
+    elif mode == "finetuned_shaded":
+        run_name = "residual-evaluation-finetuned-shaded"
+        predictions_file = "predictions_ukpv_finetuned_shaded.csv"
+        rolling_file = "predictions_rolling_finetuned_shaded.csv"
+        ensemble_file = "predictions_rolling_finetuned_shaded_ensemble.csv"
+        truth_path = file_config.test_set_shaded
+        metrics_prefix = "finetuned_shaded"
+    elif mode == "pretrained_shaded":
+        run_name = "residual-evaluation-pretrained-shaded"
+        predictions_file = "predictions_ukpv_pretrained_shaded.csv"
+        rolling_file = "predictions_rolling_pretrained_shaded.csv"
+        ensemble_file = "predictions_rolling_pretrained_shaded_ensemble.csv"
+        truth_path = file_config.test_set_shaded
+        metrics_prefix = "pretrained_shaded"
     else:
         raise ValueError(f"Unknown mode: {mode}")
 

@@ -60,6 +60,23 @@ def simulate_drift(df:pd.DataFrame, drift_magnitude: float, drift_start:pd.Times
     logging.info(f"Drift starts at {drift_start} (index {drift_idx})")
     logging.info(f"Final drift factor: {drift[-1]:.3f} ({drift_magnitude*100:.0f}% reduction)")
     return df_drifted
+def simulate_partial_shading(df:pd.DataFrame, shading_magnitude: float, shading_start:pd.Timestamp)-> pd.DataFrame:
+    """Simulate partial shading by adding a  bias to the target variable.
+    Args:
+        df (pd.DataFrame): The input dataframe containing the original data.
+        shading_magnitude (float): The maximum magnitude of the shading to simulate.
+        shading_start (datetime): The start time of the shading.
+    Returns:
+        pd.DataFrame: A new dataframe with the simulated shading added to the target variable."""
+    df_shaded = df.copy()
+    times = df["time"]
+    shading_idx = (times >= shading_start)  # index where shading starts
+    
+
+    df_shaded.loc[shading_idx, "P_norm"] = df.loc[shading_idx, "P_norm"] * (1-shading_magnitude)
+    logging.info(f"Shading starts at {shading_start}")
+    logging.info(f"Final shading factor: ({shading_magnitude*100:.0f}% reduction)")
+    return df_shaded
 
 if __name__ == "__main__":
     wandb_login()
@@ -87,6 +104,14 @@ if __name__ == "__main__":
         checkpoint_path = file_config.tft_checkpoint_path
         output_file = "predictions_ukpv_pretrained_drifted.csv"
         run_name = "eval-ukpv-pretrained-drifted"
+    elif mode == "ukpv_finetuned_shaded":
+        checkpoint_path = file_config.fine_tuned_path
+        output_file = "predictions_ukpv_finetuned_shaded.csv"
+        run_name = "eval-ukpv-finetuned-shaded"
+    elif mode == "ukpv_pretrained_shaded":
+        checkpoint_path = file_config.tft_checkpoint_path
+        output_file = "predictions_ukpv_pretrained_shaded.csv"
+        run_name = "eval-ukpv-pretrained-shaded"
     else:
         raise ValueError(f"Unknown mode: {mode}")
 
@@ -122,6 +147,9 @@ if __name__ == "__main__":
         if mode in ["ukpv_finetuned_drifted", "ukpv_pretrained_drifted"]:
             ukpv_df = simulate_drift(ukpv_df, drift_magnitude=0.25, drift_start=pd.Timestamp("2023-06-01 00:00:00"))
             ukpv_df.to_parquet(f"{file_config.test_set_drifted}", index=False)
+        if mode in ["ukpv_finetuned_shaded", "ukpv_pretrained_shaded"]:
+            ukpv_df = simulate_partial_shading(ukpv_df, shading_magnitude=0.4153, shading_start=pd.Timestamp("2023-06-01 00:00:00"))
+            ukpv_df.to_parquet(f"{file_config.test_set_shaded}", index=False)
         ukpv_df["series_id"] = ukpv_df["location"]
         ukpv_df = ukpv_df.reset_index(drop=True)
         ukpv_df["time_idx"] = range(len(ukpv_df))
