@@ -272,7 +272,10 @@ def days_to_recovery(results: pd.DataFrame, event_start: datetime.date, target: 
     """
     daily_nrmse = []
     pre_drift = results[results["date"] < event_start]
-    post_drift = results[results["date"] >= event_start]
+    post_drift = results[
+    (results["date"] >= event_start) &
+    (results["date"] < event_start + datetime.timedelta(days=30))
+    ]
     baseline_nrmse = compute_metrics(pre_drift, target)["NRMSE"]
     for day, group in post_drift.groupby("date"):
         day_nrmse = compute_metrics(group, target)["NRMSE"]
