@@ -37,6 +37,7 @@ def evaluate_tft(best_model: TemporalFusionTransformer, test_dataloader: TimeSer
     print(interpretation.keys())
     print(interpretation["encoder_variables"])
     fig = best_model.plot_interpretation(interpretation)
+    fig.set_size_inches(24, 12) 
     wandb.log({"interpretation": fig}) #type:ignore
 
     return predictions

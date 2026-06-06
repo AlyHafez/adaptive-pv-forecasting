@@ -47,7 +47,43 @@ def mbe(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     Returns:
         float: The calculated MBE value."""
     return np.mean(y_pred - y_true)
-
+def pinball_loss(actual, predicted, quantile):
+    """
+    Pinball loss for a single quantile.
+    quantile: 0.1 for Q10, 0.5 for Q50, 0.9 for Q90
+    """
+    errors = actual - predicted
+    return np.mean(np.maximum(quantile * errors, (quantile - 1) * errors))
+def compute_probabilistic(results:pd.DataFrame, target:str) -> dict:
+    """Calculate the Pinball Loss for quantile predictions.
+    Args:
+        results (pd.DataFrame): A DataFrame containing the true values and quantile predictions.
+        target (str): The column name of the true target values in the DataFrame.
+    Returns:
+        float: The calculated Pinball Loss value."""
+    daylight_only = results[results["daylight"] == 1].reset_index(drop=True)
+    actual = daylight_only["actual"].values
+    if target == "tft_pred":
+        lower = daylight_only["tft_lower"].values
+        median = daylight_only["tft_pred"].values
+        upper = daylight_only["tft_upper"].values
+    elif target == "corrected_median":
+        lower = daylight_only["corrected_lower"].values
+        median = daylight_only["corrected_median"].values
+        upper = daylight_only["corrected_upper"].values
+    
+    return {
+        "pinball_q10": pinball_loss(actual, lower, 0.1),
+        "pinball_q50": pinball_loss(actual, median, 0.5),
+        "pinball_q90": pinball_loss(actual, upper, 0.9),
+        "pinball_mean": np.mean([
+            pinball_loss(actual, lower, 0.1),
+            pinball_loss(actual, median, 0.5),
+            pinball_loss(actual, upper, 0.9)
+        ]),
+        "coverage": np.mean((actual >= lower) & (actual <= upper)),
+        "interval_width": np.mean(upper - lower),
+    }
 def compute_metrics(results:pd.DataFrame, target:str,) -> dict:
     """Compute all evaluation metrics (RMSE, NRMSE, MAE, MBE) for the given true and predicted values excluding night times.
     Args:

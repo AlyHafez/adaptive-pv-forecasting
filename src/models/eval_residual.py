@@ -13,7 +13,7 @@ from src.config import file_config, residuals_config
 from src.utils.utils import wandb_login
 from src.models.residual_corrector import ResidualCorrector
 from src.models.train_residuals import rolling_window_evaluation
-from src.evaluation.metrics import compute_metrics
+from src.evaluation.metrics import compute_metrics, compute_probabilistic
 wandb.init = wandb.init  # type: ignore
 
 logging.basicConfig(level=logging.INFO)
@@ -413,7 +413,23 @@ if __name__ == "__main__":
             daily_nrmse = days_to_recovery(ensemble_results, event_start=datetime.date(2023, 6, 1), target=target)
             all_nrmse[target] = daily_nrmse
         plot_days_to_recovery(all_nrmse, f"days_to_recovery_{metrics_prefix}")
-    
+    tft_probability_metrics = compute_probabilistic(ensemble_results, "tft_pred")
+    ensemble_probability_metrics = compute_probabilistic(ensemble_results, "corrected_median")
+
+    wandb.log({
+        "pinball_q10_tft": tft_probability_metrics["pinball_q10"],
+        "pinball_q50_tft": tft_probability_metrics["pinball_q50"],
+        "pinball_q90_tft": tft_probability_metrics["pinball_q90"],
+        "pinball_mean_tft": tft_probability_metrics["pinball_mean"],
+        "coverage_tft": tft_probability_metrics["coverage"],
+        "interval_width_tft": tft_probability_metrics["interval_width"],
+        "pinball_q10_ensemble": ensemble_probability_metrics["pinball_q10"],
+        "pinball_q50_ensemble": ensemble_probability_metrics["pinball_q50"],
+        "pinball_q90_ensemble": ensemble_probability_metrics["pinball_q90"],
+        "pinball_mean_ensemble": ensemble_probability_metrics["pinball_mean"],
+        "coverage_ensemble": ensemble_probability_metrics["coverage"],
+        "interval_width_ensemble": ensemble_probability_metrics["interval_width"],
+    })
     ensemble_results.to_csv((f"{file_config.results_dir}/{ensemble_file}"), index=False)
     logging.info("\n=== Final Metrics Summary ===")
     logging.info(f"{'Model':<20} {'MAE':>8} {'RMSE':>8} {'NRMSE':>8}")
@@ -421,6 +437,11 @@ if __name__ == "__main__":
     logging.info(f"{'ARIMA':<20} {arima_metrics['MAE']:>8.4f} {arima_metrics['RMSE']:>8.4f} {arima_metrics['NRMSE']:>8.4f}")
     logging.info(f"{'TFT':<20} {tft_metrics['MAE']:>8.4f} {tft_metrics['RMSE']:>8.4f} {tft_metrics['NRMSE']:>8.4f}")
     logging.info(f"{'TFT+Residual':<20} {ensemble_metrics['MAE']:>8.4f} {ensemble_metrics['RMSE']:>8.4f} {ensemble_metrics['NRMSE']:>8.4f}")
+    logging.info("\n=== Probabilistic Metrics Summary ===")
+    logging.info(f"{'Model':<20} {'PB_Q10':>8} {'PB_Q50':>8} {'PB_Q90':>8} {'PB_Mean':>8} {'Coverage':>8} {'IW':>8}")
+    logging.info(f"{'TFT':<20} {tft_probability_metrics['pinball_q10']:>8.4f} {tft_probability_metrics['pinball_q50']:>8.4f} {tft_probability_metrics['pinball_q90']:>8.4f} {tft_probability_metrics['pinball_mean']:>8.4f} {tft_probability_metrics['coverage']:>8.4f} {tft_probability_metrics['interval_width']:>8.4f}")
+    logging.info(f"{'TFT+Residual':<20} {ensemble_probability_metrics['pinball_q10']:>8.4f} {ensemble_probability_metrics['pinball_q50']:>8.4f} {ensemble_probability_metrics['pinball_q90']:>8.4f} {ensemble_probability_metrics['pinball_mean']:>8.4f} {ensemble_probability_metrics['coverage']:>8.4f} {ensemble_probability_metrics['interval_width']:>8.4f}")
+
     plot_predictions(ensemble_results, ensemble_results["naive"], ensemble_results["arima_pred"], "forecast_week", "ensemble residual", hours=168)
     plot_predictions(
         ensemble_results.iloc[6000:],
