@@ -4,6 +4,7 @@ import pandas as pd# type: ignore[import]
 import numpy as np# type: ignore[import]
 import logging
 import sys
+import datetime
 import wandb # type: ignore
 from statsmodels.tsa.arima.model import ARIMA
 import plotly.graph_objects as go
@@ -91,7 +92,50 @@ def plot_predictions(results: pd.DataFrame, naive_pred: np.ndarray, arima_baseli
 
     wandb.log({name: fig})
 
-
+def plot_days_to_recovery(daily_nrmse: pd.DataFrame, name: str):
+    """Plot NRMSE over time after drift event to show recovery speed.
+    Args:
+        daily_nrmse (pd.DataFrame): DataFrame with columns 'date', 'nrmse', 'baseline_nrmse', 'change_from_baseline'
+        name (str): name for the plot in wandb
+    """
+    fig = go.Figure()
+    colors = {
+        "tft_pred": "blue",
+        "corrected_median": "red", 
+        "naive": "green",
+        "arima_pred": "orange"
+    }
+    
+    labels = {
+        "tft_pred": "TFT",
+        "corrected_median": "TFT+Residual",
+        "naive": "Naive",
+        "arima_pred": "ARIMA"
+    }
+    for target, df in daily_nrmse.items():
+        rolling_nrmse = df["nrmse"].rolling(window=7, min_periods=1).mean()
+        fig.add_trace(go.Scatter(
+            x=list(range(len(df))), y=rolling_nrmse.values,
+            
+            name=labels[target],
+            line=dict(color=colors[target], width=2)
+        ))
+        fig.add_hline(
+            y = df["baseline_nrmse"].iloc[0],
+            line_dash = "dash",
+            line_color = colors[target],
+            annotation_text=f"{labels.get(target, target)} baseline",
+            annotation_position="right"
+        )
+    fig.update_layout(
+        title="Model Recovery After Distribution Shift Onset",
+        xaxis_title="Days after event onset",
+        yaxis_title="NRMSE (7-day rolling average)",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+        template="plotly_white",
+        height=400
+    )
+    wandb.log({name: fig})
 def naive_baseline(results: pd.DataFrame) -> np.ndarray:
     """return persistent naive baseline"""
     return results["actual"].shift(24).fillna(0).values
@@ -215,6 +259,32 @@ def ensemble_residuals(predictions: dict, window_sizes:list, method:str)-> pd.Da
     results["corrected_lower"] = results["corrected_lower"].clip(lower=0)
     return results
 
+
+def days_to_recovery(results: pd.DataFrame, event_start: datetime.date, target: str) -> pd.DataFrame:
+    """calculate NRMSE for each day after drift to explore how long it takes for models
+    to recover after drift event and whether residual corrector can speed up recovery
+        args:
+            results (pd.DataFrame): contains actual, tft_pred, corrected_median and daylight columns
+            event_start (datetime.date): date of drift event
+            target (str): column name to compute NRMSE for e.g. 'tft_pred' or 'corrected_median'
+        returns:
+            pd.DataFrame: contains NRMSE for each day after drift for models
+    """
+    daily_nrmse = []
+    pre_drift = results[results["date"] < event_start]
+    post_drift = results[results["date"] >= event_start]
+    baseline_nrmse = compute_metrics(pre_drift, target)["NRMSE"]
+    for day, group in post_drift.groupby("date"):
+        day_nrmse = compute_metrics(group, target)["NRMSE"]
+        logging.info(f"Date: {day}, NRMSE: {day_nrmse:.4f}, Change from baseline: {day_nrmse - baseline_nrmse:.4f}")
+        daily_nrmse.append({
+            "date": day,
+            "nrmse": day_nrmse,
+            "baseline_nrmse": baseline_nrmse,
+            "change_from_baseline": day_nrmse - baseline_nrmse
+        })
+    return pd.DataFrame(daily_nrmse)
+
 if __name__ == "__main__":
 
     wandb_login()
@@ -335,6 +405,14 @@ if __name__ == "__main__":
     logging.info(f"Naive     — MAE: {naive_metrics['MAE']:.4f}, RMSE: {naive_metrics['RMSE']:.4f}, NRMSE: {naive_metrics['NRMSE']:.4f}")
     logging.info(f"TFT       — MAE: {tft_metrics['MAE']:.4f}, RMSE: {tft_metrics['RMSE']:.4f}, NRMSE: {tft_metrics['NRMSE']:.4f}")
     
+    if mode in ["finetuned_drifted", "pretrained_drifted", "finetuned_shaded", "pretrained_shaded"]:
+        ensemble_results["date"] = pd.to_datetime(ensemble_results["date"]).dt.date
+        all_nrmse = {}
+
+        for target in ["naive", "arima_pred", "tft_pred", "corrected_median"]:
+            daily_nrmse = days_to_recovery(ensemble_results, event_start=datetime.date(2023, 6, 1), target=target)
+            all_nrmse[target] = daily_nrmse
+        plot_days_to_recovery(all_nrmse, f"days_to_recovery_{metrics_prefix}")
     
     ensemble_results.to_csv((f"{file_config.results_dir}/{ensemble_file}"), index=False)
     logging.info("\n=== Final Metrics Summary ===")
