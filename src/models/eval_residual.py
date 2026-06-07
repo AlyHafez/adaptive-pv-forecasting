@@ -271,6 +271,8 @@ def days_to_recovery(results: pd.DataFrame, event_start: datetime.date, target: 
             pd.DataFrame: contains NRMSE for each day after drift for models
     """
     daily_nrmse = []
+    results = results.copy()
+    results["date"] = pd.to_datetime(results["date"]).dt.date
     pre_drift = results[results["date"] < event_start]
     post_drift = results[
     (results["date"] >= event_start) &
