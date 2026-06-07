@@ -70,7 +70,7 @@ class ResidualsConfig:
     dropout: float = 0.1
     lr: float = 0.0001
     seed: int = 42
-    window_size:list[int] = field(default_factory=lambda: [7,14,30,60,90])
+    window_size:list[int] = field(default_factory=lambda: [30,60,90])
 
 
 @dataclass
