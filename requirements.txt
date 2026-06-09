@@ -1,23 +1,31 @@
 # Data
 pandas
-numpy
+numpy>=1.26.0,<2.0.0
 pyarrow
 requests
 polars
 
 # ML
-torch
-pytorch-forecasting
+torch>=2.2.0
+pytorch-forecasting>=1.7.0
 lightning
+cvxpy==1.4.4
+scikit-learn
+scipy
 optuna
 optuna-integration[pytorch_lightning]
 lightgbm
+
+# Data acquisition
+huggingface_hub
+python-dotenv
 
 # Experiment tracking
 wandb
 tensorboard
 
 # Utils
-python-dotenv
 matplotlib
 statsmodels
+plotly
+tqdm
