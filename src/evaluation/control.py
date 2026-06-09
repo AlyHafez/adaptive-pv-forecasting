@@ -2,6 +2,7 @@ import cvxpy as cp # type: ignore[import]
 import numpy as np# type: ignore[import]
 import pandas as pd # type: ignore[import]
 import logging
+import sys
 from src.config import file_config, residuals_config, control_config # type: ignore[import]
 from src.data.data_acquisition import get_pv_system # type: ignore[import]
 from scipy.stats import norm # type: ignore[import]
@@ -263,8 +264,26 @@ def get_synthetic_prices(n_steps: int) -> tuple[np.ndarray, np.ndarray]:
     return import_prices, export_prices
 
 if __name__ == "__main__":
+    mode = sys.argv[1] if len(sys.argv) > 1 else "pretrainted"
+    if mode == "pretrained":
+        run_name = "control-pretrained"
+        ensemble_file = "predictions_rolling_pretrained_ensemble.csv"
+        truth_path = file_config.test_set
+
+    elif mode == "pretrained_drifted":
+        run_name = "control-pretrained-drifted"
+        ensemble_file = "predictions_rolling_pretrained_drifted_ensemble.csv"
+        truth_path = file_config.test_set_drifted
+
+    elif mode == "pretrained_shaded":
+        run_name = "control-pretrained-shaded"
+        ensemble_file = "predictions_rolling_pretrained_shaded_ensemble.csv"
+        truth_path = file_config.test_set_shaded
+
+    else:
+        raise ValueError(f"Unknown mode: {mode}")
     _, _, _, kwp = get_pv_system()
-    results = pd.read_csv(f"{file_config.results_dir}/results/predictions_rolling_finetuned_ensemble.csv")
+    results = pd.read_csv(f"{file_config.results_dir}/{ensemble_file}")
     
     scenarios = {
         "persistence":  dict(forecast_type="point",         is_residual=False, point_forecast="persistence"),
