@@ -16,11 +16,8 @@ def mpc(max_charge_rate:float, max_discharge_rate:float, max_import_rate:float,
     import_energy_price = cp.Parameter(shape = H, name="import_price", nonneg=True)
     export_energy_price = cp.Parameter(shape = H, name="export_price", nonneg=True)
 
-    # Shared action variables (here-and-now decisions)
 
-    charge = cp.Variable(H, nonneg=True)
-    discharge = cp.Variable(H, nonneg=True)
-    is_charging  = cp.Variable(H,   boolean=True)
+
 
 
     # Scenario-specific recourse variables
@@ -34,24 +31,41 @@ def mpc(max_charge_rate:float, max_discharge_rate:float, max_import_rate:float,
     is_importing_q10 = cp.Variable(H, boolean=True)
     is_importing_q50 = cp.Variable(H, boolean=True)
     is_importing_q90 = cp.Variable(H, boolean=True)
+    charge_q10 = cp.Variable(H, nonneg=True, name="charge_q10")
+    charge_q50 = cp.Variable(H, nonneg=True, name="charge_q50")
+    charge_q90 = cp.Variable(H, nonneg=True, name="charge_q90")
+    discharge_q10 = cp.Variable(H, nonneg=True, name="discharge_q10")
+    discharge_q50 = cp.Variable(H, nonneg=True, name="discharge_q50")
+    discharge_q90 = cp.Variable(H, nonneg=True, name="discharge_q90")
+
+    is_charging_q10 = cp.Variable(H, boolean=True)
+    is_charging_q50 = cp.Variable(H, boolean=True)
+    is_charging_q90 = cp.Variable(H, boolean=True)
     soc_q10       = cp.Variable(H+1, nonneg=True)
     soc_q50       = cp.Variable(H+1, nonneg=True)
     soc_q90       = cp.Variable(H+1, nonneg=True)
-
+    is_charging_shared = cp.Variable(H, boolean=True)
+    is_importing_shared = cp.Variable(H, boolean=True)
 
  
 
     constraints = []
     constraints += [
+        is_charging_q10[0]  == is_charging_shared[0],
+        is_charging_q50[0]  == is_charging_shared[0],
+        is_charging_q90[0]  == is_charging_shared[0],
+        is_importing_q10[0] == is_importing_shared[0],
+        is_importing_q50[0] == is_importing_shared[0],
+        is_importing_q90[0] == is_importing_shared[0],
         # initial SOC
         soc_q10[0] == soc_value,
         soc_q50[0] == soc_value,
         soc_q90[0] == soc_value,
         
         # SOC dynamics
-        soc_q10[1:] == soc_q10[:-1] + (charge - discharge) / control_config.battery_capacity,
-        soc_q50[1:] == soc_q50[:-1] + (charge - discharge) / control_config.battery_capacity,
-        soc_q90[1:] == soc_q90[:-1] + (charge - discharge) / control_config.battery_capacity,
+        soc_q10[1:] == soc_q10[:-1] + (charge_q10 - discharge_q10) / control_config.battery_capacity,
+        soc_q50[1:] == soc_q50[:-1] + (charge_q50 - discharge_q50) / control_config.battery_capacity,
+        soc_q90[1:] == soc_q90[:-1] + (charge_q90 - discharge_q90) / control_config.battery_capacity,
         
         # SOC limits over horizon
         soc_q10[1:] >= control_config.min_soc + back_off,  # don't go too low
@@ -61,14 +75,18 @@ def mpc(max_charge_rate:float, max_discharge_rate:float, max_import_rate:float,
         soc_q50[1:] <= control_config.max_soc - back_off,  # don't go too high
         soc_q90[1:] <= control_config.max_soc - back_off,  # don't go too high
 
-        forecast_lower  + import_q10 + discharge == export_q10 + charge,
-        forecast_median + import_q50 + discharge == export_q50 + charge,
-        forecast_upper  + import_q90 + discharge == export_q90 + charge,
+        forecast_lower  + import_q10 + discharge_q10 == export_q10 + charge_q10,
+        forecast_median + import_q50 + discharge_q50 == export_q50 + charge_q50,
+        forecast_upper  + import_q90 + discharge_q90 == export_q90 + charge_q90,
 
         # mutex - mode shared
-        charge    <= max_charge_rate    * is_charging,
-  
-        discharge <= max_discharge_rate * (1 - is_charging),
+        charge_q10    <= max_charge_rate    * is_charging_q10,
+        charge_q50    <= max_charge_rate    * is_charging_q50,
+        charge_q90    <= max_charge_rate    * is_charging_q90,
+
+        discharge_q10 <= max_discharge_rate * (1 - is_charging_q10),
+        discharge_q50 <= max_discharge_rate * (1 - is_charging_q50),
+        discharge_q90 <= max_discharge_rate * (1 - is_charging_q90),
 
         import_q10    <= max_import_rate    * is_importing_q10,
         import_q50    <= max_import_rate    * is_importing_q50,
@@ -102,8 +120,8 @@ def mpc(max_charge_rate:float, max_discharge_rate:float, max_import_rate:float,
         "soc_init":         soc_value,
         "import_price":     import_energy_price,
         "export_price":     export_energy_price,
-        "charge":           charge,    # execute Q50
-        "discharge":        discharge,
+        "charge":           charge_q50,    # execute Q50
+        "discharge":        discharge_q50,
         "import_energy":    import_q50,
         "export_energy":    export_q50,
         "soc":              soc_q50,
