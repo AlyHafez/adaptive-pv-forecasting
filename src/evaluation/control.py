@@ -9,6 +9,17 @@ from scipy.stats import norm # type: ignore[import]
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 def mpc(max_charge_rate:float, max_discharge_rate:float, max_import_rate:float,
          max_export_rate:float, H:int, back_off:np.ndarray)->dict:
+    """Define the MPC optimization problem for PV self-consumption with battery storage.
+    Args:
+        max_charge_rate (float): Maximum charging power of the battery (kW).
+        max_discharge_rate (float): Maximum discharging power of the battery (kW).
+        max_import_rate (float): Maximum power that can be imported from the grid (kW
+        max_export_rate (float): Maximum power that can be exported to the grid (kW).
+        H (int): The control horizon length (number of time steps to optimize over).
+        back_off (np.ndarray): An array of back-off values to adjust SOC constraints based on forecast uncertainty.
+        
+        returns:
+        dict: A dictionary containing the MPC problem and relevant variables for optimization."""
     forecast_median = cp.Parameter(shape=H, name="forecast_median", nonneg=True)
     forecast_lower = cp.Parameter(shape=H, name="forecast_lower", nonneg=True)
     forecast_upper = cp.Parameter(shape=H, name="forecast_upper", nonneg=True)
@@ -248,6 +259,17 @@ def compute_back_off(results: pd.DataFrame, kwp: float, H: int,
     max_back_off = (control_config.max_soc - control_config.min_soc) / 4
     return np.clip(back_off, 0, max_back_off)
 def simulate_control(results: pd.DataFrame, initial_soc: float, H: int, forecast_type: str = "deterministic", is_residual: bool = True, point_forecast:str = "tft", kwp: float = 1.0)->pd.DataFrame:
+    """Simulate the control actions over a year using the MPC controller.
+    Args:
+        results (pd.DataFrame): A DataFrame containing the true values and forecast predictions.
+        initial_soc (float): The initial state of charge of the battery at the start of the simulation.
+        H (int): The control horizon length.
+        forecast_type (str): The type of forecast used ("deterministic" or "probabilistic")
+        is_residual (bool): Whether the forecast is a residual-corrected forecast or not.
+        point_forecast (str): If using deterministic forecasts, which point forecast to use ("tft", "arima", "persistence")
+        kwp (float): The kW rating of the PV system, used to scale the forecasts and errors to actual energy units.
+    Returns:
+        pd.DataFrame: A DataFrame containing the control actions and relevant information for each time step in the simulation."""
     import_prices, export_prices = get_synthetic_prices(len(results))
     
     back_off = compute_back_off(results, kwp, H, forecast_type, is_residual, point_forecast)
@@ -288,6 +310,11 @@ def simulate_control(results: pd.DataFrame, initial_soc: float, H: int, forecast
     return pd.DataFrame(control_actions)
 
 def get_synthetic_prices(n_steps: int) -> tuple[np.ndarray, np.ndarray]:
+    """Generate synthetic import and export prices for the simulation.
+    This creates a typical daily pattern of import prices with higher prices during the day and lower prices at night, and a flat export price representing the SEG.
+    Args:        n_steps (int): The total number of time steps for which to generate prices.
+    Returns:
+        tuple[np.ndarray, np.ndarray]: Two arrays containing the import prices and export prices for each time step."""
     # typical UK daily pattern, repeated
     daily_import = np.array([
         0.10, 0.10, 0.10, 0.10,  # 00-04 cheap overnight
