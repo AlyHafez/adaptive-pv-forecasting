@@ -128,6 +128,21 @@ def mpc(max_charge_rate:float, max_discharge_rate:float, max_import_rate:float,
     }
 
 def run_mpc(mpc:dict, t:int, results: pd.DataFrame, import_prices: np.ndarray, export_prices: np.ndarray, current_soc: float, H: int, forecast_type: str = "probabilistic", is_residual: bool = True, point_forecast:str = "tft", kwp: float = 1.0)->dict:
+    """Run the MPC optimization for a single time step.
+    args:
+        mpc (dict): The MPC problem and parameters.
+        t (int): The current time step index.
+        results (pd.DataFrame): A DataFrame containing the true values and forecast predictions.
+        import_prices (np.ndarray): An array of import prices for the horizon.
+        export_prices (np.ndarray): An array of export prices for the horizon.      
+        current_soc (float): The current state of charge of the battery.
+        H (int): The control horizon length.
+        forecast_type (str): The type of forecast used ("deterministic" or "probabilistic")
+        is_residual (bool): Whether the forecast is a residual-corrected forecast or not.
+        point_forecast (str): If using deterministic forecasts, which point forecast to use ("tft", "arima", "persistence")
+        kwp (float): The kW rating of the PV system, used to scale the forecasts and errors to actual energy units.
+    returns:     dict: A dictionary containing the optimized control actions and relevant information.
+    """
     if forecast_type == "probabilistic":
         if is_residual:
             median = results["corrected_median"].values[t:t+H]
@@ -190,6 +205,17 @@ def run_mpc(mpc:dict, t:int, results: pd.DataFrame, import_prices: np.ndarray, e
 def compute_back_off(results: pd.DataFrame, kwp: float, H: int, 
                      forecast_type: str, is_residual: bool, 
                      point_forecast: str) -> np.ndarray:
+    """Compute the back-off amount for each time step in the horizon based on forecast uncertainty.
+    This is used to adjust the SOC constraints in the MPC to be more conservative when forecasts are uncertain.
+    Args:
+        results (pd.DataFrame): A DataFrame containing the true values and forecast predictions.
+        kwp (float): The kW rating of the PV system, used to scale the  errors to actual energy units.
+        H (int): The control horizon length.
+        forecast_type (str): The type of forecast used ("deterministic" or "prob")
+        is_residual (bool): Whether the forecast is a residual-corrected forecast or not.
+        point_forecast (str): If using deterministic forecasts, which point forecast to use ("tft", "arima", "persistence")
+    returns:
+        np.ndarray: An array of back-off values for each time step in the horizon."""
     
     # get correct forecast column
     if forecast_type == "probabilistic":
