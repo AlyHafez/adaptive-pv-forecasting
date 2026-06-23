@@ -14,6 +14,8 @@ class FileConfig:
     raw_data_dir: str = os.path.join(base_dir, "data/raw")
     processed_data_dir: str = os.path.join(base_dir, "data/processed")
     data_path: str = os.path.join(processed_data_dir, "pvgis_all.parquet")
+    load_data_path: str = os.path.join(raw_data_dir, "500_shared_consumption.parquet")
+    processed_load_data_path: str = os.path.join(processed_data_dir, "load_data_processed.parquet")
     fine_tuning_households:str = os.path.join(processed_data_dir,"ukpv_london_tft.parquet")
     test_set:str = os.path.join(processed_data_dir, "ukpv_london_test_household.parquet")
     test_set_drifted:str = os.path.join(processed_data_dir, "ukpv_london_test_household_drifted.parquet")
