@@ -26,7 +26,7 @@ def mpc(max_charge_rate:float, max_discharge_rate:float, max_import_rate:float,
     soc_value = cp.Parameter(name="soc_value", nonneg=True)
     import_energy_price = cp.Parameter(shape = H, name="import_price", nonneg=True)
     export_energy_price = cp.Parameter(shape = H, name="export_price", nonneg=True)
-
+    load = cp.Parameter(shape=H, name="load", nonneg=True)
 
 
 
@@ -49,6 +49,7 @@ def mpc(max_charge_rate:float, max_discharge_rate:float, max_import_rate:float,
     discharge_q50 = cp.Variable(H, nonneg=True, name="discharge_q50")
     discharge_q90 = cp.Variable(H, nonneg=True, name="discharge_q90")
 
+   
     is_charging_q10 = cp.Variable(H, boolean=True)
     is_charging_q50 = cp.Variable(H, boolean=True)
     is_charging_q90 = cp.Variable(H, boolean=True)
@@ -86,9 +87,9 @@ def mpc(max_charge_rate:float, max_discharge_rate:float, max_import_rate:float,
         soc_q50[1:] <= control_config.max_soc - back_off,  # don't go too high
         soc_q90[1:] <= control_config.max_soc - back_off,  # don't go too high
 
-        forecast_lower  + import_q10 + discharge_q10 == export_q10 + charge_q10,
-        forecast_median + import_q50 + discharge_q50 == export_q50 + charge_q50,
-        forecast_upper  + import_q90 + discharge_q90 == export_q90 + charge_q90,
+        forecast_lower  + import_q10 + discharge_q10 == export_q10 + charge_q10 + load,
+        forecast_median + import_q50 + discharge_q50 == export_q50 + charge_q50 + load,
+        forecast_upper  + import_q90 + discharge_q90 == export_q90 + charge_q90 + load,
 
         # mutex - mode shared
         charge_q10    <= max_charge_rate    * is_charging_q10,
@@ -133,19 +134,21 @@ def mpc(max_charge_rate:float, max_discharge_rate:float, max_import_rate:float,
         "export_price":     export_energy_price,
         "charge":           charge_q50,    # execute Q50
         "discharge":        discharge_q50,
+        "load":             load,
         "import_energy":    import_q50,
         "export_energy":    export_q50,
         "soc":              soc_q50,
     }
 
-def run_mpc(mpc:dict, t:int, results: pd.DataFrame, import_prices: np.ndarray, export_prices: np.ndarray, current_soc: float, H: int, forecast_type: str = "probabilistic", is_residual: bool = True, point_forecast:str = "tft", kwp: float = 1.0)->dict:
+def run_mpc(mpc:dict, t:int, results: pd.DataFrame, import_prices: np.ndarray, export_prices: np.ndarray,load: np.ndarray, current_soc: float, H: int, forecast_type: str = "probabilistic", is_residual: bool = True, point_forecast:str = "tft", kwp: float = 1.0)->dict:
     """Run the MPC optimization for a single time step.
     args:
         mpc (dict): The MPC problem and parameters.
         t (int): The current time step index.
         results (pd.DataFrame): A DataFrame containing the true values and forecast predictions.
         import_prices (np.ndarray): An array of import prices for the horizon.
-        export_prices (np.ndarray): An array of export prices for the horizon.      
+        export_prices (np.ndarray): An array of export prices for the horizon.
+        load (np.ndarray): An array of load values for the horizon.
         current_soc (float): The current state of charge of the battery.
         H (int): The control horizon length.
         forecast_type (str): The type of forecast used ("deterministic" or "probabilistic")
@@ -194,7 +197,7 @@ def run_mpc(mpc:dict, t:int, results: pd.DataFrame, import_prices: np.ndarray, e
     mpc["soc_init"].value = current_soc
     mpc["import_price"].value = import_prices[t:t+H]
     mpc["export_price"].value = export_prices[t:t+H]
-
+    mpc["load"].value = load[t:t+H]
     mpc["problem"].solve(solver=cp.GUROBI, verbose=False, reoptimize=True)
 
     if mpc["problem"].status == cp.OPTIMAL:
@@ -258,7 +261,7 @@ def compute_back_off(results: pd.DataFrame, kwp: float, H: int,
     
     max_back_off = (control_config.max_soc - control_config.min_soc) / 4
     return np.clip(back_off, 0, max_back_off)
-def simulate_control(results: pd.DataFrame, initial_soc: float, H: int, forecast_type: str = "deterministic", is_residual: bool = True, point_forecast:str = "tft", kwp: float = 1.0)->pd.DataFrame:
+def simulate_control(results: pd.DataFrame, initial_soc: float, H: int, forecast_type: str = "deterministic", is_residual: bool = True, point_forecast:str = "tft", kwp: float = 1.0, household_id: int = 0)->pd.DataFrame:
     """Simulate the control actions over a year using the MPC controller.
     Args:
         results (pd.DataFrame): A DataFrame containing the true values and forecast predictions.
@@ -271,7 +274,7 @@ def simulate_control(results: pd.DataFrame, initial_soc: float, H: int, forecast
     Returns:
         pd.DataFrame: A DataFrame containing the control actions and relevant information for each time step in the simulation."""
     import_prices, export_prices = get_synthetic_prices(len(results))
-    
+    load = get_single_household(file_config.processed_load_data_path, household_id) 
     back_off = compute_back_off(results, kwp, H, forecast_type, is_residual, point_forecast)
     
     logging.info(f"back_off range: {back_off.min():.4f} to {back_off.max():.4f}")
@@ -289,7 +292,7 @@ def simulate_control(results: pd.DataFrame, initial_soc: float, H: int, forecast
     start_t = 1 if point_forecast == "persistence" else 0
 
     for t in range(start_t, len(results)-H):
-        action = run_mpc(mpc_controller, t, results, import_prices, export_prices, current_soc, H, forecast_type, is_residual, point_forecast, kwp)
+        action = run_mpc(mpc_controller, t, results, import_prices, export_prices, load, current_soc, H, forecast_type, is_residual, point_forecast, kwp)
         
         actual_gen = results["actual"].values[t] *kwp
         actual_net = actual_gen - action["charge"] + action["discharge"]
@@ -308,6 +311,16 @@ def simulate_control(results: pd.DataFrame, initial_soc: float, H: int, forecast
         current_soc = action["soc_next"]
     
     return pd.DataFrame(control_actions)
+def get_single_household(load_path:str, household_id:int)->np.ndarray:
+    """Get the load data for a single household from the processed load dataset.
+    Args:
+        load_path (str): The path to the processed load dataset (parquet file).
+        household_id (int): The ID of the household to retrieve.
+    Returns:
+        np.ndarray: An array of load values for the specified household."""
+    load_df = pd.read_parquet(load_path)
+    household_load = load_df[load_df["id"] == household_id].sort_values(by="datetime")["value_kWh"].values
+    return household_load
 
 def get_synthetic_prices(n_steps: int) -> tuple[np.ndarray, np.ndarray]:
     """Generate synthetic import and export prices for the simulation.
@@ -368,7 +381,7 @@ if __name__ == "__main__":
         is_residual = bool(scenario["is_residual"])
         point_forecast = str(scenario["point_forecast"])
         logging.info(f"Running scenario: {name}")
-        df = simulate_control(results, initial_soc=0.5, H=24, forecast_type=forecast_type, is_residual=is_residual, point_forecast=point_forecast, kwp=kwp)
+        df = simulate_control(results, initial_soc=0.5, H=24, forecast_type=forecast_type, is_residual=is_residual, point_forecast=point_forecast, kwp=kwp, household_id=0)
         logging.info(df[["charge","discharge","actual_export","actual_import","actual_revenue"]].sum())
         logging.info(f"{name}: planned=£{df['planned_revenue'].sum():.4f} actual=£{df['actual_revenue'].sum():.4f}")
         df.to_csv(f"{file_config.results_dir}/control_{name}.csv", index=False)
