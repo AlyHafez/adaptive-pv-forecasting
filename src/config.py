@@ -18,8 +18,11 @@ class FileConfig:
     processed_load_data_path: str = os.path.join(processed_data_dir, "load_data_processed.parquet")
     fine_tuning_households:str = os.path.join(processed_data_dir,"ukpv_london_tft.parquet")
     test_set:str = os.path.join(processed_data_dir, "ukpv_london_test_household.parquet")
+    household2_test_set:str = os.path.join(processed_data_dir, "ukpv_london_test_household2.parquet")
     test_set_drifted:str = os.path.join(processed_data_dir, "ukpv_london_test_household_drifted.parquet")
     test_set_shaded:str = os.path.join(processed_data_dir, "ukpv_london_test_household_shaded.parquet")
+    household2_test_set_shaded:str = os.path.join(processed_data_dir, "ukpv_london_test_household2_shaded.parquet")
+    household2_test_set_drifted:str = os.path.join(processed_data_dir, "ukpv_london_test_household2_drifted.parquet")
     results_dir: str = os.path.join(base_dir, "results")
     models_dir: str = os.path.join(results_dir, "models")
     tft_models_dir: str = os.path.join(models_dir, "tft")
@@ -80,15 +83,16 @@ class ControlConfig:
     """General control algorithm """
     max_charge_rate: float = 3.6
     max_discharge_rate: float = 3.6
-    max_import_rate: float = 3.6
+    max_import_rate: float = 20
     max_export_rate: float = 3.6
     max_soc:float = 0.8
     min_soc:float = 0.2
     battery_capacity:float = 10.0 # kWh
-    beta:float = 0.05 # probability constraint for chance-constrained MPC
-    q10_weight:float = 0.25
-    q50_weight:float = 0.5
-    q90_weight:float = 0.25
+    beta:float = 0.15 # probability constraint for chance-constrained MPC
+    q10_weight:float = 0.333
+    q50_weight:float = 0.333
+    q90_weight:float = 0.333
+    grid_penalty:float = 0.005 # penalty for grid import in £/kWh
 
 
 

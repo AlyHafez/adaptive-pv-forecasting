@@ -69,7 +69,12 @@ def mpc(max_charge_rate:float, max_discharge_rate:float, max_import_rate:float,
         is_importing_q10[0] == is_importing_shared[0],
         is_importing_q50[0] == is_importing_shared[0],
         is_importing_q90[0] == is_importing_shared[0],
+        charge_q10[0]    == charge_q50[0],
+        charge_q50[0]    == charge_q90[0],
+        discharge_q10[0] == discharge_q50[0],
+        discharge_q50[0] == discharge_q90[0],
         # initial SOC
+
         soc_q10[0] == soc_value,
         soc_q50[0] == soc_value,
         soc_q90[0] == soc_value,
@@ -120,6 +125,11 @@ def mpc(max_charge_rate:float, max_discharge_rate:float, max_import_rate:float,
             + control_config.q90_weight * (
                 cp.sum(cp.multiply(export_q90, export_energy_price))
                 - cp.sum(cp.multiply(import_q90, import_energy_price))
+            )
+            - control_config.grid_penalty * (
+            control_config.q10_weight * cp.sum(import_q10)
+            + control_config.q50_weight * cp.sum(import_q50)
+            + control_config.q90_weight * cp.sum(import_q90)
             )
         )
 
@@ -259,7 +269,8 @@ def compute_back_off(results: pd.DataFrame, kwp: float, H: int,
         for i in range(1, H+1)
     ])
     
-    max_back_off = (control_config.max_soc - control_config.min_soc) / 4
+    max_back_off = (control_config.max_soc - control_config.min_soc) / 8
+    
     return np.clip(back_off, 0, max_back_off)
 def simulate_control(results: pd.DataFrame, initial_soc: float, H: int, forecast_type: str = "deterministic", is_residual: bool = True, point_forecast:str = "tft", kwp: float = 1.0, household_id: int = 0)->pd.DataFrame:
     """Simulate the control actions over a year using the MPC controller.
@@ -295,7 +306,7 @@ def simulate_control(results: pd.DataFrame, initial_soc: float, H: int, forecast
         action = run_mpc(mpc_controller, t, results, import_prices, export_prices, load, current_soc, H, forecast_type, is_residual, point_forecast, kwp)
         
         actual_gen = results["actual"].values[t] *kwp
-        actual_net = actual_gen - action["charge"] + action["discharge"]
+        actual_net = actual_gen - action["charge"] + action["discharge"] -load[t]
         actual_export = max(actual_net, 0)
         actual_import = max(-actual_net, 0)
         actual_revenue = (
@@ -319,7 +330,7 @@ def get_single_household(load_path:str, household_id:int)->np.ndarray:
     Returns:
         np.ndarray: An array of load values for the specified household."""
     load_df = pd.read_parquet(load_path)
-    household_load = load_df[load_df["id"] == household_id].sort_values(by="datetime")["value_kWh"].values
+    household_load = load_df[load_df["id"] == household_id].sort_values(by="datetime")["load_kWh"].values
     return household_load
 
 def get_synthetic_prices(n_steps: int) -> tuple[np.ndarray, np.ndarray]:
@@ -383,5 +394,5 @@ if __name__ == "__main__":
         logging.info(f"Running scenario: {name}")
         df = simulate_control(results, initial_soc=0.5, H=24, forecast_type=forecast_type, is_residual=is_residual, point_forecast=point_forecast, kwp=kwp, household_id=0)
         logging.info(df[["charge","discharge","actual_export","actual_import","actual_revenue"]].sum())
-        logging.info(f"{name}: planned=£{df['planned_revenue'].sum():.4f} actual=£{df['actual_revenue'].sum():.4f}")
+        logging.info(f"{name}: actual=£{df['actual_revenue'].sum():.4f}")
         df.to_csv(f"{file_config.results_dir}/control_{name}.csv", index=False)

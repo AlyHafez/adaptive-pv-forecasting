@@ -98,15 +98,26 @@ if __name__ == "__main__":
     logging.info(df_pvgis_all["location"].value_counts())
 
     # Example usage: prepare UK_PV data for one system and save, then prepare for multiple systems and save, then also prepare original PVGIS data with features for TFT training.
-    ss_id, lat, lon, kwp = get_pv_system()
-    pv_df = download_ukpv_system(ss_id, kwp, year=2023)
+    ss_id, lat, lon, kwp = get_pv_system(max_kwp=4.0)
+    df_household1 = download_ukpv_system(ss_id, kwp, year=2023)
+
     weather_df = download_openmeteo(lat, lon)
-    pvgis_format_df = prepare_ukpv_as_pvgis(pv_df, weather_df, ss_id, lat, lon)
+    pvgis_format_df = prepare_ukpv_as_pvgis(df_household1, weather_df, ss_id, lat, lon)
     pvgis_format_df["ss_id"] = ss_id  # add ss_id for reference
+
     df = add_features(f"London", lat, lon, df=pvgis_format_df)
     df.to_parquet(f"{file_config.processed_data_dir}/ukpv_london_test_household.parquet", index=False)
     logging.info(f"Saved: {df.shape}")
     logging.info(f"\n{df.head()}")
+    ss_id2, lat2, lon2, kwp2 = get_pv_system(max_kwp=2.5)
+    logging.info(f"Selected system {ss_id2} at lat={lat2}, lon={lon2}, kWp={kwp2}")
+    df_household2 = download_ukpv_system(ss_id2, kwp2, year=2023)
+    pvgis_format_df2 = prepare_ukpv_as_pvgis(df_household2, weather_df, ss_id2, lat2, lon2)
+    pvgis_format_df2["ss_id"] = ss_id2  # add ss_id for reference
+    df2 = add_features(f"London", lat2, lon2, df=pvgis_format_df2)
+    df2.to_parquet(f"{file_config.processed_data_dir}/ukpv_london_test_household2.parquet", index=False)
+    logging.info(f"Saved: {df2.shape}")
+    logging.info(f"\n{df2.head()}")
 
     systems = get_pv_systems_multiple(n=10, exclude_ss_id=2746)
     df_all: list[pd.DataFrame] = []

@@ -71,7 +71,7 @@ def get_pv_systems_multiple(n: int = 10, exclude_ss_id: int = 2746,
     return systems
 
 def get_pv_system( lat_min: float = 51.3, lat_max: float = 51.7,
-                  lon_min: float = -0.5, lon_max: float = 0.3):
+                  lon_min: float = -0.5, lon_max: float = 0.3, max_kwp:float = 4.0):
     metadata_path = hf_hub_download(
         repo_id="openclimatefix/uk_pv",
         filename="metadata.csv",
@@ -83,7 +83,7 @@ def get_pv_system( lat_min: float = 51.3, lat_max: float = 51.7,
     london = metadata.filter(
         (pl.col("latitude_rounded").is_between(lat_min, lat_max)) &
         (pl.col("longitude_rounded").is_between(lon_min, lon_max)) &
-        (pl.col("kWp") <= 4.0) &
+        (pl.col("kWp") <= max_kwp) &
         (pl.col("end_datetime_GMT") >= "2023-12-01")
     )
     
@@ -137,8 +137,10 @@ def download_openmeteo(lat: float, lon: float, start: str = "2023-01-01", end: s
 
 if __name__ == "__main__":
     systems = get_pv_systems_multiple(n=10, exclude_ss_id=2746)
-    ss_id, lat, lon, kwp = get_pv_system()
+    ss_id, lat, lon, kwp = get_pv_system(max_kwp=4.0)
+    logging.info(f"Selected system {ss_id} at lat={lat}, lon={lon}, kWp={kwp}")
     df_test = download_ukpv_system(ss_id, kwp, year=2023)
+
     df_all: list[pd.DataFrame] = []
     for system in systems.iter_rows(named=True):
         ss_id = system["ss_id"]
