@@ -295,48 +295,91 @@ if __name__ == "__main__":
     wandb_login()
     
     mode = sys.argv[1] if len(sys.argv) > 1 else "finetuned"
-    
+    house = sys.argv[2] if len(sys.argv) > 2 else "1"   
     if mode == "finetuned":
-        run_name = "residual-evaluation-finetuned"
-        predictions_file = "predictions_ukpv_finetuned.csv"
-        rolling_file = "predictions_rolling_finetuned.csv"
-        ensemble_file = "predictions_rolling_finetuned_ensemble.csv"
-        truth_path = file_config.test_set
+        if house == "1":
+            run_name = "residual-evaluation-finetuned"
+            predictions_file = "predictions_ukpv_finetuned.csv"
+            rolling_file = "predictions_rolling_finetuned.csv"
+            ensemble_file = "predictions_rolling_finetuned_ensemble.csv"
+            truth_path = file_config.test_set
+        else:
+            run_name = "residual-evaluation-finetuned-house2"
+            predictions_file = "predictions_ukpv2_finetuned.csv"
+            rolling_file = "predictions_rolling_finetuned2.csv"
+            ensemble_file = "predictions_rolling_finetuned_ensemble2.csv"
+            truth_path = file_config.household2_test_set            
         metrics_prefix = "finetuned"
+
     elif mode == "pretrained":
-        run_name = "residual-evaluation-pretrained"
-        predictions_file = "predictions_ukpv_pretrained.csv"
-        rolling_file = "predictions_rolling_pretrained.csv"
-        ensemble_file = "predictions_rolling_pretrained_ensemble.csv"
-        truth_path = file_config.test_set
+        if house == "1":
+            run_name = "residual-evaluation-pretrained"
+            predictions_file = "predictions_ukpv_pretrained.csv"
+            rolling_file = "predictions_rolling_pretrained.csv"
+            ensemble_file = "predictions_rolling_pretrained_ensemble.csv"
+            truth_path = file_config.test_set
+        else:
+            run_name = "residual-evaluation-pretrained-house2"
+            predictions_file = "predictions_ukpv2_pretrained.csv"
+            rolling_file = "predictions_rolling_pretrained2.csv"
+            ensemble_file = "predictions_rolling_pretrained_ensemble2.csv"
+            truth_path = file_config.household2_test_set           
         metrics_prefix = "pretrained"
     elif mode == "finetuned_drifted":
-        run_name = "residual-evaluation-finetuned-drifted"
-        predictions_file = "predictions_ukpv_finetuned_drifted.csv"
-        rolling_file = "predictions_rolling_finetuned_drifted.csv"
-        ensemble_file = "predictions_rolling_finetuned_drifted_ensemble.csv"
-        truth_path = file_config.test_set_drifted
+        if house == "1":
+            run_name = "residual-evaluation-finetuned-drifted"
+            predictions_file = "predictions_ukpv_finetuned_drifted.csv"
+            rolling_file = "predictions_rolling_finetuned_drifted.csv"
+            ensemble_file = "predictions_rolling_finetuned_drifted_ensemble.csv"
+            truth_path = file_config.test_set_drifted
+        else:
+            run_name = "residual-evaluation-finetuned-drifted-house2"
+            predictions_file = "predictions_ukpv2_finetuned_drifted.csv"
+            rolling_file = "predictions_rolling_finetuned_drifted2.csv"
+            ensemble_file = "predictions_rolling_finetuned_drifted_ensemble2.csv"
+            truth_path = file_config.household2_test_set_drifted           
         metrics_prefix = "finetuned_drifted"
     elif mode == "pretrained_drifted":
-        run_name = "residual-evaluation-pretrained-drifted"
-        predictions_file = "predictions_ukpv_pretrained_drifted.csv"
-        rolling_file = "predictions_rolling_pretrained_drifted.csv"
-        ensemble_file = "predictions_rolling_pretrained_drifted_ensemble.csv"
-        truth_path = file_config.test_set_drifted
+        if house == "1":
+            run_name = "residual-evaluation-pretrained-drifted"
+            predictions_file = "predictions_ukpv_pretrained_drifted.csv"
+            rolling_file = "predictions_rolling_pretrained_drifted.csv"
+            ensemble_file = "predictions_rolling_pretrained_drifted_ensemble.csv"
+            truth_path = file_config.test_set_drifted
+        else:
+            run_name = "residual-evaluation-pretrained-drifted-house2"
+            predictions_file = "predictions_ukpv2_pretrained_drifted.csv"
+            rolling_file = "predictions_rolling_pretrained_drifted2.csv"
+            ensemble_file = "predictions_rolling_pretrained_drifted_ensemble2.csv"
+            truth_path = file_config.household2_test_set_drifted            
         metrics_prefix = "pretrained_drifted"
     elif mode == "finetuned_shaded":
-        run_name = "residual-evaluation-finetuned-shaded"
-        predictions_file = "predictions_ukpv_finetuned_shaded.csv"
-        rolling_file = "predictions_rolling_finetuned_shaded.csv"
-        ensemble_file = "predictions_rolling_finetuned_shaded_ensemble.csv"
-        truth_path = file_config.test_set_shaded
+        if house =="1":
+            run_name = "residual-evaluation-finetuned-shaded"
+            predictions_file = "predictions_ukpv_finetuned_shaded.csv"
+            rolling_file = "predictions_rolling_finetuned_shaded.csv"
+            ensemble_file = "predictions_rolling_finetuned_shaded_ensemble.csv"
+            truth_path = file_config.test_set_shaded
+        else:
+            run_name = "residual-evaluation-finetuned-shaded-house2"
+            predictions_file = "predictions_ukpv2_finetuned_shaded.csv"
+            rolling_file = "predictions_rolling_finetuned_shaded2.csv"
+            ensemble_file = "predictions_rolling_finetuned_shaded_ensemble2.csv"
+            truth_path = file_config.household2_test_set_shaded
         metrics_prefix = "finetuned_shaded"
     elif mode == "pretrained_shaded":
-        run_name = "residual-evaluation-pretrained-shaded"
-        predictions_file = "predictions_ukpv_pretrained_shaded.csv"
-        rolling_file = "predictions_rolling_pretrained_shaded.csv"
-        ensemble_file = "predictions_rolling_pretrained_shaded_ensemble.csv"
-        truth_path = file_config.test_set_shaded
+        if house == "1":
+            run_name = "residual-evaluation-pretrained-shaded"
+            predictions_file = "predictions_ukpv_pretrained_shaded.csv"
+            rolling_file = "predictions_rolling_pretrained_shaded.csv"
+            ensemble_file = "predictions_rolling_pretrained_shaded_ensemble.csv"
+            truth_path = file_config.test_set_shaded
+        else:
+            run_name = "residual-evaluation-pretrained-shaded-house2"
+            predictions_file = "predictions_ukpv2_pretrained_shaded.csv"
+            rolling_file = "predictions_rolling_pretrained_shaded2.csv"
+            ensemble_file = "predictions_rolling_pretrained_shaded_ensemble2.csv"
+            truth_path = file_config.household2_test_set_shaded
         metrics_prefix = "pretrained_shaded"
     else:
         raise ValueError(f"Unknown mode: {mode}")
