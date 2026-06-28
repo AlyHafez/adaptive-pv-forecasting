@@ -280,7 +280,7 @@ def cqr_calibration(ensemble_results: pd.DataFrame,
     lb     = cal_d["corrected_lower"].values
     ub     = cal_d["corrected_upper"].values
 
-    nc_scores = np.max(lb-actual, actual - ub)
+    nc_scores = np.maximum(lb-actual, actual - ub)
     n = len(nc_scores)
     q_level = min(np.ceil((n + 1) * (1 - alpha)) / n, 1.0)
     q_hat = np.quantile(nc_scores, q_level)
@@ -290,8 +290,8 @@ def cqr_calibration(ensemble_results: pd.DataFrame,
     else:
         logging.info(f"Intervals too wide — contracting by {abs(q_hat):.4f}")
     calibrated = ensemble_results.copy()
-    calibrated["corrected_lower"] = (ensemble_results["corrected_lower"] - q_hat).clip(lower=0)
-    calibrated["corrected_upper"] = (ensemble_results["corrected_upper"] - q_hat).clip(lower=0)
+    calibrated["calibrated_lower"] = (ensemble_results["corrected_lower"] - q_hat).clip(lower=0)
+    calibrated["calibrated_upper"] = (ensemble_results["corrected_upper"] + q_hat).clip(lower=0)
     
     test_d = test[test["daylight"] == 1]
     test_idx = test_d.index
@@ -521,7 +521,7 @@ if __name__ == "__main__":
         "ensemble_rmse": ensemble_metrics["RMSE"],
         "ensemble_nrmse": ensemble_metrics["NRMSE"],
     })
-    q_hat, calibrated_results, cqr_stats = cqr_calibration(
+    q_hat, calibrated_results = cqr_calibration(
     ensemble_results,
     target_coverage=0.80,
     calibration_days=30
@@ -535,10 +535,7 @@ if __name__ == "__main__":
     index=False
     )
     wandb.log({
-    "cqr_q_hat":              cqr_stats["q_hat"],
-    "cqr_coverage_before":    cqr_stats["cov_before_test"],
-    "cqr_coverage_after":     cqr_stats["cov_after_test"],
-    "cqr_coverage_full_year": cqr_stats["cov_after_full"],
+    "cqr_q_hat":              q_hat,
     "calibrated_pb_q10":      calibrated_prob["pinball_q10"],
     "calibrated_pb_q50":      calibrated_prob["pinball_q50"],
     "calibrated_pb_q90":      calibrated_prob["pinball_q90"],
@@ -586,7 +583,7 @@ if __name__ == "__main__":
     logging.info(f"{'Model':<20} {'PB_Q10':>8} {'PB_Q50':>8} {'PB_Q90':>8} {'PB_Mean':>8} {'Coverage':>8} {'IW':>8}")
     logging.info(f"{'TFT':<20} {tft_probability_metrics['pinball_q10']:>8.4f} {tft_probability_metrics['pinball_q50']:>8.4f} {tft_probability_metrics['pinball_q90']:>8.4f} {tft_probability_metrics['pinball_mean']:>8.4f} {tft_probability_metrics['coverage']:>8.4f} {tft_probability_metrics['interval_width']:>8.4f}")
     logging.info(f"{'TFT+Residual':<20} {ensemble_probability_metrics['pinball_q10']:>8.4f} {ensemble_probability_metrics['pinball_q50']:>8.4f} {ensemble_probability_metrics['pinball_q90']:>8.4f} {ensemble_probability_metrics['pinball_mean']:>8.4f} {ensemble_probability_metrics['coverage']:>8.4f} {ensemble_probability_metrics['interval_width']:>8.4f}")
-
+    logging.info(f"{'TFT+Res+CQR':<20} {calibrated_prob['pinball_q10']:>8.4f} {calibrated_prob['pinball_q50']:>8.4f} {calibrated_prob['pinball_q90']:>8.4f} {calibrated_prob['pinball_mean']:>8.4f} {calibrated_prob['coverage']:>8.4f} {calibrated_prob['interval_width']:>8.4f}")
     plot_predictions(ensemble_results, ensemble_results["naive"], ensemble_results["arima_pred"], "forecast_week", "ensemble residual", hours=168)
     plot_predictions(
         ensemble_results.iloc[6000:],
