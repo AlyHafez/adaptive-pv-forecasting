@@ -83,7 +83,7 @@ class ControlConfig:
     """General control algorithm """
     max_charge_rate: float = 3.6
     max_discharge_rate: float = 3.6
-    max_import_rate: float = 20
+    max_import_rate: float = 7.4
     max_export_rate: float = 3.6
     max_soc:float = 0.8
     min_soc:float = 0.2

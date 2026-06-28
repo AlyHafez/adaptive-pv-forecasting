@@ -258,8 +258,80 @@ def ensemble_residuals(predictions: dict, window_sizes:list, method:str)-> pd.Da
     results["corrected_upper"] = results["corrected_upper"].clip(lower=0)
     results["corrected_lower"] = results["corrected_lower"].clip(lower=0)
     return results
+def cqr_calibration(ensemble_results: pd.DataFrame,
+                    target_coverage: float = 0.80,
+                    calibration_days=30) -> tuple[float, pd.DataFrame]:
+    """ Conformalized Quantile Regression calibration.
+    Following Renkema et al. (2024) Eq. 7:
+    PI_i = [lb_i - q_hat, ub_i + q_hat]
+        
+    Nonconformity score = max(lb - actual, actual - ub)
+    Negative inside interval, positive outside."""
+    alpha = 1- target_coverage
+    dates = pd.to_datetime(ensemble_results["date"]).dt.date
+    unique_dates = sorted(set(dates))
+    
+    cal_dates  = unique_dates[:calibration_days]
+    test_dates = unique_dates[calibration_days:]
+    cal  = ensemble_results[dates.isin(cal_dates)]
+    test = ensemble_results[dates.isin(test_dates)]
+    cal_d = cal[cal["daylight"] == 1].reset_index(drop=True)
+    actual = cal_d["actual"].values
+    lb     = cal_d["corrected_lower"].values
+    ub     = cal_d["corrected_upper"].values
+
+    nc_scores = np.max(lb-actual, actual - ub)
+    n = len(nc_scores)
+    q_level = min(np.ceil((n + 1) * (1 - alpha)) / n, 1.0)
+    q_hat = np.quantile(nc_scores, q_level)
+    logging.info(f"CQR q_hat: {q_hat:.4f}")
+    if q_hat > 0:
+        logging.info(f"Intervals too narrow — expanding by {q_hat:.4f}")
+    else:
+        logging.info(f"Intervals too wide — contracting by {abs(q_hat):.4f}")
+    calibrated = ensemble_results.copy()
+    calibrated["corrected_lower"] = (ensemble_results["corrected_lower"] - q_hat).clip(lower=0)
+    calibrated["corrected_upper"] = (ensemble_results["corrected_upper"] - q_hat).clip(lower=0)
+    
+    test_d = test[test["daylight"] == 1]
+    test_idx = test_d.index
+    
+    coverage_before = np.mean(
+        (test_d["actual"].values >= test_d["corrected_lower"].values) &
+        (test_d["actual"].values <= test_d["corrected_upper"].values)
+    )
+    coverage_after = np.mean(
+        (test_d["actual"].values >= calibrated.loc[test_idx, "calibrated_lower"].values) &
+        (test_d["actual"].values <= calibrated.loc[test_idx, "calibrated_upper"].values)
+    )
+
+    all_d = ensemble_results[ensemble_results["daylight"] == 1]
+    coverage_full_year = np.mean(
+        (all_d["actual"].values >= calibrated.loc[all_d.index, "calibrated_lower"].values) &
+        (all_d["actual"].values <= calibrated.loc[all_d.index, "calibrated_upper"].values)
+    )
+    
+    logging.info(f"Coverage before (test period):  {coverage_before:.4f}")
+    logging.info(f"Coverage after  (test period):  {coverage_after:.4f}")
+    logging.info(f"Coverage after  (full year):    {coverage_full_year:.4f}")
+    logging.info(f"Target:                         {target_coverage:.4f}")
+    
+    return q_hat, calibrated
 
 
+    
+
+    
+   
+
+
+
+
+   
+
+   
+   
+   
 def days_to_recovery(results: pd.DataFrame, event_start: datetime.date, target: str) -> pd.DataFrame:
     """calculate NRMSE for each day after drift to explore how long it takes for models
     to recover after drift event and whether residual corrector can speed up recovery
@@ -449,6 +521,31 @@ if __name__ == "__main__":
         "ensemble_rmse": ensemble_metrics["RMSE"],
         "ensemble_nrmse": ensemble_metrics["NRMSE"],
     })
+    q_hat, calibrated_results, cqr_stats = cqr_calibration(
+    ensemble_results,
+    target_coverage=0.80,
+    calibration_days=30
+    )
+    cal_for_metrics = calibrated_results.copy()
+    cal_for_metrics["corrected_lower"] = calibrated_results["calibrated_lower"]
+    cal_for_metrics["corrected_upper"] = calibrated_results["calibrated_upper"]
+    calibrated_prob = compute_probabilistic(cal_for_metrics, "corrected_median")
+    calibrated_results.to_csv(
+    f"{file_config.results_dir}/{ensemble_file.replace('.csv', '_calibrated.csv')}",
+    index=False
+    )
+    wandb.log({
+    "cqr_q_hat":              cqr_stats["q_hat"],
+    "cqr_coverage_before":    cqr_stats["cov_before_test"],
+    "cqr_coverage_after":     cqr_stats["cov_after_test"],
+    "cqr_coverage_full_year": cqr_stats["cov_after_full"],
+    "calibrated_pb_q10":      calibrated_prob["pinball_q10"],
+    "calibrated_pb_q50":      calibrated_prob["pinball_q50"],
+    "calibrated_pb_q90":      calibrated_prob["pinball_q90"],
+    "calibrated_pb_mean":     calibrated_prob["pinball_mean"],
+    "calibrated_coverage":    calibrated_prob["coverage"],
+    "calibrated_iw":          calibrated_prob["interval_width"],
+})
 
     logging.info(f"Naive     — MAE: {naive_metrics['MAE']:.4f}, RMSE: {naive_metrics['RMSE']:.4f}, NRMSE: {naive_metrics['NRMSE']:.4f}")
     logging.info(f"TFT       — MAE: {tft_metrics['MAE']:.4f}, RMSE: {tft_metrics['RMSE']:.4f}, NRMSE: {tft_metrics['NRMSE']:.4f}")

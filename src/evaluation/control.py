@@ -322,6 +322,68 @@ def simulate_control(results: pd.DataFrame, initial_soc: float, H: int, forecast
         current_soc = action["soc_next"]
     
     return pd.DataFrame(control_actions)
+
+def rule_based_scheduling(results: pd.DataFrame, load: np.ndarray, 
+                          kwp: float, import_prices: np.ndarray,
+                          export_prices: np.ndarray) -> pd.DataFrame:
+    """
+    Simple rule-based battery scheduler.
+    Rule: charge when PV > load (excess solar), 
+          discharge when PV < load (evening peak)
+    No forecast needed — purely reactive.
+    """
+    control_actions = []
+    current_soc = 0.5
+    
+    for t in range(len(results) - 24):
+        actual_gen = results["actual"].values[t] * kwp
+        current_load = load[t]
+        net = actual_gen - current_load
+        
+        charge = 0.0
+        discharge = 0.0
+        
+        if net > 0:
+            # excess PV — charge battery
+            charge = min(
+                net,
+                control_config.max_charge_rate,
+                (control_config.max_soc - current_soc) * control_config.battery_capacity
+            )
+        elif net < 0:
+            # deficit — discharge battery
+            discharge = min(
+                abs(net),
+                control_config.max_discharge_rate,
+                (current_soc - control_config.min_soc) * control_config.battery_capacity
+            )
+        
+        # update SOC
+        current_soc = current_soc + (charge - discharge) / control_config.battery_capacity
+        current_soc = np.clip(current_soc, control_config.min_soc, control_config.max_soc)
+        
+        # compute actual revenue
+        actual_net = actual_gen - charge + discharge - current_load
+        actual_export = max(actual_net, 0)
+        actual_import = max(-actual_net, 0)
+        actual_revenue = (
+            actual_export * export_prices[t]
+            - actual_import * import_prices[t]
+        )
+        
+        control_actions.append({
+            "t":             t,
+            "charge":        charge,
+            "discharge":     discharge,
+            "actual_export": actual_export,
+            "actual_import": actual_import,
+            "actual_revenue": actual_revenue,
+            "actual_pv":     actual_gen,
+            "soc":           current_soc,
+            "forecast_type": "rule_based"
+        })
+    
+    return pd.DataFrame(control_actions)
 def get_single_household(load_path:str, household_id:int)->np.ndarray:
     """Get the load data for a single household from the processed load dataset.
     Args:
@@ -360,39 +422,65 @@ def get_synthetic_prices(n_steps: int) -> tuple[np.ndarray, np.ndarray]:
 
 if __name__ == "__main__":
     mode = sys.argv[1] if len(sys.argv) > 1 else "pretrainted"
+    house = sys.argv[2] if len(sys.argv) > 2 else "1"
     if mode == "pretrained":
+        
         run_name = "control-pretrained"
-        ensemble_file = "predictions_rolling_pretrained_ensemble.csv"
-        truth_path = file_config.test_set
+        if house =="1":
+            ensemble_file = "predictions_rolling_pretrained_ensemble.csv"
+            truth_path = file_config.test_set
+        elif house == "2":
+            ensemble_file = "predictions_rolling_pretrained_ensemble2.csv"
+            truth_path = file_config.household2_test_set
 
     elif mode == "pretrained_drifted":
         run_name = "control-pretrained-drifted"
-        ensemble_file = "predictions_rolling_pretrained_drifted_ensemble.csv"
-        truth_path = file_config.test_set_drifted
+        if house =="1":
+            ensemble_file = "predictions_rolling_pretrained_drifted_ensemble.csv"
+            truth_path = file_config.test_set_drifted
+        elif house == "2":
+            ensemble_file = "predictions_rolling_pretrained_drifted_ensemble2.csv"
+            truth_path = file_config.household2_test_set_drifted        
 
     elif mode == "pretrained_shaded":
+        
         run_name = "control-pretrained-shaded"
-        ensemble_file = "predictions_rolling_pretrained_shaded_ensemble.csv"
-        truth_path = file_config.test_set_shaded
-
+        if house =="1":
+            ensemble_file = "predictions_rolling_pretrained_shaded_ensemble.csv"
+            truth_path = file_config.test_set_shaded
+        elif house == "2":
+            ensemble_file = "predictions_rolling_pretrained_shaded_ensemble2.csv"
+            truth_path = file_config.household2_test_set_shaded
     else:
         raise ValueError(f"Unknown mode: {mode}")
-    _, _, _, kwp = get_pv_system()
+    if house == "1":
+        _, _, _, kwp = get_pv_system()
+    elif house =="2":
+        _, _, _, kwp = get_pv_system(max_kwp=2.5)
     results = pd.read_csv(f"{file_config.results_dir}/{ensemble_file}")
     
     scenarios = {
         "persistence":  dict(forecast_type="point",         is_residual=False, point_forecast="persistence"),
         "tft_point":    dict(forecast_type="point",         is_residual=False, point_forecast="tft"),
         "tft_prob":     dict(forecast_type="probabilistic", is_residual=False, point_forecast="tft"),
+        "tft_residual_point":   dict(forecast_type="point",         is_residual=True,  point_forecast="tft"),
         "tft_residual": dict(forecast_type="probabilistic", is_residual=True,  point_forecast="tft"),
     }
-    
+    import_prices, export_prices = get_synthetic_prices(len(results))
+    load = get_single_household(file_config.processed_load_data_path, 0)
+
+    # rule-based runs once — no forecast needed
+    df_rule = rule_based_scheduling(results, load, kwp, import_prices, export_prices)
+    logging.info(f"rule_based: actual=£{df_rule['actual_revenue'].sum():.4f}")
+    df_rule.to_csv(f"{file_config.results_dir}/control_rule_based_{mode}_h{house}.csv", index=False)
     for name, scenario in scenarios.items():
         forecast_type = str(scenario["forecast_type"])
         is_residual = bool(scenario["is_residual"])
         point_forecast = str(scenario["point_forecast"])
         logging.info(f"Running scenario: {name}")
         df = simulate_control(results, initial_soc=0.5, H=24, forecast_type=forecast_type, is_residual=is_residual, point_forecast=point_forecast, kwp=kwp, household_id=0)
+        import_prices, export_prices = get_synthetic_prices(len(results))
+        load = get_single_household(file_config.processed_load_data_path, 0)
         logging.info(df[["charge","discharge","actual_export","actual_import","actual_revenue"]].sum())
         logging.info(f"{name}: actual=£{df['actual_revenue'].sum():.4f}")
-        df.to_csv(f"{file_config.results_dir}/control_{name}.csv", index=False)
+        df.to_csv(f"{file_config.results_dir}/control_{name}_{mode}_h{house}.csv", index=False)
