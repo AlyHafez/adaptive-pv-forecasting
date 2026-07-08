@@ -483,6 +483,10 @@ if __name__ == "__main__":
         logging.info(f"window_{window} - MAE: {corrected_metrics['MAE']:.4f}, RMSE: {corrected_metrics['RMSE']:.4f}")
 
     ensemble_results = ensemble_residuals(results_per_window, residuals_config.window_size, "inverse_rmse")
+    daylight = ensemble_results["daylight"].values
+    ensemble_results["corrected_median"] = (ensemble_results["corrected_median"] * daylight).clip(0)
+    ensemble_results["corrected_lower"]  = (ensemble_results["corrected_lower"]  * daylight).clip(0)
+    ensemble_results["corrected_upper"]  = (ensemble_results["corrected_upper"]  * daylight).clip(0)
     ensemble_metrics = compute_metrics(ensemble_results, "corrected_median")
 
     tft_metrics = compute_metrics(ensemble_results, "tft_pred")
