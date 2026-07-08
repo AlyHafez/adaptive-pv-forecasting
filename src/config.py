@@ -88,11 +88,14 @@ class ControlConfig:
     max_soc:float = 0.8
     min_soc:float = 0.2
     battery_capacity:float = 10.0 # kWh
+    battery_sensitivity_test:list[float] = field(default_factory=lambda: [5.0, 10.0, 15.0]) # kWh
+    
+    
     beta:float = 0.15 # probability constraint for chance-constrained MPC
     q10_weight:float = 0.333
     q50_weight:float = 0.333
     q90_weight:float = 0.333
-    grid_penalty:float = 0.005 # penalty for grid import in £/kWh
+    cycle_penalty:float = 0.04 # penalty for grid import in £/kWh
 
 
 
