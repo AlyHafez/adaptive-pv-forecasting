@@ -6,7 +6,7 @@ import logging
 import sys
 import datetime
 import wandb # type: ignore
-from statsmodels.tsa.arima.model import ARIMA
+from statsmodels.tsa.statespace.sarimax import SARIMAX
 import plotly.graph_objects as go
 import matplotlib.pyplot as plt # type: ignore[import]
 from src.config import file_config, residuals_config
@@ -166,7 +166,7 @@ def arima_baseline(df, ensemble_results, window_days=30):
         logging.info(f"ARIMA processing {test_day.date()}")
         
         try:
-            model = ARIMA(history, order=(2, 0, 1))
+            model = SARIMAX(history, order=(1, 0, 1), seasonal_order=(1,0,1,24))
             fitted = model.fit()
             forecast = fitted.forecast(steps=24)
             forecast = np.clip(forecast, 0, None)
