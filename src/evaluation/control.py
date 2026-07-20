@@ -131,7 +131,12 @@ def mpc(max_charge_rate:float, max_discharge_rate:float, max_import_rate:float,
             + control_config.q50_weight * cp.sum(charge_q50)
             + control_config.q90_weight * cp.sum(charge_q90)
         )
+        - control_config.import_penalty * (
+            control_config.q10_weight * cp.sum(import_q10)
+            + control_config.q50_weight * cp.sum(import_q50)
+            + control_config.q90_weight * cp.sum(import_q90)
         )
+    )
 
     problem = cp.Problem(objective, constraints)
     return {
@@ -170,8 +175,8 @@ def run_mpc(mpc:dict, t:int, results: pd.DataFrame, import_prices: np.ndarray, e
     if forecast_type == "probabilistic":
         if is_residual:
             median = results["corrected_median"].values[t:t+H]
-            lower  = results["calibrated_lower"].values[t:t+H]
-            upper  = results["calibrated_upper"].values[t:t+H]
+            lower  = results["corrected_lower"].values[t:t+H]
+            upper  = results["corrected_upper"].values[t:t+H]
             
         else:
             median = results["tft_pred"].values[t:t+H]
@@ -373,17 +378,20 @@ def simulate_control(results, initial_soc, H, forecast_type,
         
         actual_gen    = results["actual"].values[t] * kwp
         actual_net    = actual_gen - action["charge"] + action["discharge"] - load[t]
-        actual_export = max(actual_net, 0)
+        uncurtailed_export = max(actual_net, 0)
+        actual_export = min(uncurtailed_export, control_config.max_export_rate)
+        curtailment   = uncurtailed_export - actual_export
         actual_import = max(-actual_net, 0)
         actual_revenue = (
             actual_export * export_prices[t]
             - actual_import * import_prices[t]
-        )
-        
+            )
+
         action["actual_revenue"] = actual_revenue
         action["actual_export"]  = actual_export
         action["actual_import"]  = actual_import
         action["actual_pv"]      = actual_gen
+        action["curtailment"]    = curtailment
         
         control_actions.append(action)
         current_soc = action["soc_next"]
@@ -430,22 +438,20 @@ def rule_based_scheduling(results: pd.DataFrame, load: np.ndarray,
         
         # compute actual revenue
         actual_net = actual_gen - charge + discharge - current_load
-        actual_export = max(actual_net, 0)
+        uncurtailed_export = max(actual_net, 0)
+        actual_export = min(uncurtailed_export, control_config.max_export_rate)
+        curtailment = uncurtailed_export - actual_export
         actual_import = max(-actual_net, 0)
         actual_revenue = (
             actual_export * export_prices[t]
             - actual_import * import_prices[t]
         )
-        
+
         control_actions.append({
-            "t":             t,
-            "charge":        charge,
-            "discharge":     discharge,
-            "actual_export": actual_export,
-            "actual_import": actual_import,
-            "actual_revenue": actual_revenue,
-            "actual_pv":     actual_gen,
-            "soc":           current_soc,
+            "t": t, "charge": charge, "discharge": discharge,
+            "actual_export": actual_export, "actual_import": actual_import,
+            "actual_revenue": actual_revenue, "actual_pv": actual_gen,
+            "curtailment": curtailment, "soc": current_soc,
             "forecast_type": "rule_based"
         })
     
@@ -493,7 +499,16 @@ def get_single_household_aligned(load_path: str,
     logging.info(f"Load aligned to {n_steps} steps: sum={load_array.sum():.1f} kWh")
     
     return load_array
-
+def compute_curtailment(df: pd.DataFrame) -> dict:
+    """Energy generated but neither consumed, stored, nor exportable
+    within the grid connection limit."""
+    total_curtailment = df["curtailment"].sum()
+    total_pv = df["actual_pv"].sum()
+    return {
+        "total_curtailment_kwh": float(total_curtailment),
+        "curtailment_rate": float(total_curtailment / total_pv) if total_pv > 0 else 0.0,
+        "curtailment_hours": int((df["curtailment"] > 0.01).sum()),
+    }
 def get_synthetic_prices(n_steps: int) -> tuple[np.ndarray, np.ndarray]:
     """Generate synthetic import and export prices for the simulation.
     This creates a typical daily pattern of import prices with higher prices during the day and lower prices at night, and a flat export price representing the SEG.
@@ -520,6 +535,7 @@ def get_synthetic_prices(n_steps: int) -> tuple[np.ndarray, np.ndarray]:
     return import_prices, export_prices
 
 if __name__ == "__main__":
+    
     mode = sys.argv[1] if len(sys.argv) > 1 else "pretrained"
     house = sys.argv[2] if len(sys.argv) > 2 else "1"
     if house == "1":
@@ -531,37 +547,37 @@ if __name__ == "__main__":
         
         run_name = "control-pretrained"
         if house =="1":
-            ensemble_file = "predictions_rolling_pretrained_ensemble_calibrated.csv"
+            ensemble_file = "predictions_rolling_pretrained_ensemble.csv"
             truth_path = file_config.test_set
         elif house == "2":
-            ensemble_file = "predictions_rolling_pretrained_ensemble2_calibrated.csv"
+            ensemble_file = "predictions_rolling_pretrained_ensemble2.csv"
             truth_path = file_config.household2_test_set
 
     elif mode == "pretrained_drifted":
         run_name = "control-pretrained-drifted"
         if house =="1":
-            ensemble_file = "predictions_rolling_pretrained_drifted_ensemble_calibrated.csv"
+            ensemble_file = "predictions_rolling_pretrained_drifted_ensemble.csv"
             truth_path = file_config.test_set_drifted
         elif house == "2":
-            ensemble_file = "predictions_rolling_pretrained_drifted_ensemble2_calibrated.csv"
+            ensemble_file = "predictions_rolling_pretrained_drifted_ensemble2.csv"
             truth_path = file_config.household2_test_set_drifted        
 
     elif mode == "pretrained_shaded":
         
         run_name = "control-pretrained-shaded"
         if house =="1":
-            ensemble_file = "predictions_rolling_pretrained_shaded_ensemble_calibrated.csv"
+            ensemble_file = "predictions_rolling_pretrained_shaded_ensemble.csv"
             truth_path = file_config.test_set_shaded
         elif house == "2":
-            ensemble_file = "predictions_rolling_pretrained_shaded_ensemble2_calibrated.csv"
+            ensemble_file = "predictions_rolling_pretrained_shaded_ensemble2.csv"
             truth_path = file_config.household2_test_set_shaded
     elif mode == "battery_sensitivity":
         run_name = "control-battery-sensitivity"
         if house =="1":
-            ensemble_file = "predictions_rolling_pretrained_ensemble_calibrated.csv"
+            ensemble_file = "predictions_rolling_pretrained_ensemble.csv"
             truth_path = file_config.test_set
         elif house == "2":
-            ensemble_file = "predictions_rolling_pretrained_ensemble2_calibrated.csv"
+            ensemble_file = "predictions_rolling_pretrained_ensemble2.csv"
             truth_path = file_config.household2_test_set
     else:
         raise ValueError(f"Unknown mode: {mode}")
@@ -570,12 +586,11 @@ if __name__ == "__main__":
     elif house =="2":
         _, _, _, kwp = get_pv_system(max_kwp=2.5)
     results = pd.read_csv(f"{file_config.results_dir}/{ensemble_file}")
-    
+    results_table = []
     scenarios = {
         "persistence":  dict(forecast_type="point",         is_residual=False, point_forecast="persistence"),
-        "tft_point":    dict(forecast_type="point",         is_residual=False, point_forecast="tft"),
+        "arima":        dict(forecast_type="point",         is_residual=False, point_forecast="arima"),
         "tft_prob":     dict(forecast_type="probabilistic", is_residual=False, point_forecast="tft"),
-        "tft_residual_point":   dict(forecast_type="point",         is_residual=True,  point_forecast="tft"),
         "tft_residual": dict(forecast_type="probabilistic", is_residual=True,  point_forecast="tft"),
     }
     import_prices, export_prices = get_synthetic_prices(len(results))
@@ -584,11 +599,24 @@ if __name__ == "__main__":
     )
 
 
-    # rule-based
+   
     if mode == "battery_sensitivity":
         for battery in control_config.battery_sensitivity_test:
             logging.info(f"Running rule-based control with battery_capacity={battery} kWh")
             df_rule = rule_based_scheduling(results, load, kwp, import_prices, export_prices, battery)
+            rule_degradation = df_rule["charge"].sum() * control_config.cycle_penalty
+            results_table.append({
+                "scenario":        "rule_based",
+                "mode":            mode,
+                "house":           house,
+                "apparent_rev":    round(df_rule["actual_revenue"].sum(), 2),
+                "degradation":     round(rule_degradation, 2),
+                "true_revenue":    round(df_rule["actual_revenue"].sum() - rule_degradation, 2),
+                "self_consumption": None,
+                "violations":      None,
+                "violation_rate":  None,
+                "annual_charge":   round(df_rule["charge"].sum(), 1),
+            })
             logging.info(f"rule_based: actual=£{df_rule['actual_revenue'].sum():.4f}")
             df_rule.to_csv(f"{file_config.results_dir}/control_rule_based_{mode}_h{house}_battery_{battery}.csv", index=False)
             for scenario_name, scenario in scenarios.items():
@@ -608,16 +636,45 @@ if __name__ == "__main__":
                 violations = compute_soc_violations(df)
                 load_total = load[:len(df)].sum()
                 sc_metrics = compute_self_consumption(df, load_total)
+                curt_metrics = compute_curtailment(df)
+                logging.info(f"{scenario_name}: curtailment={curt_metrics['total_curtailment_kwh']:.2f} kWh "
+                f"({curt_metrics['curtailment_rate']*100:.2f}%)")
                 
-                logging.info(df[["charge","discharge","actual_export","actual_import","actual_revenue"]].sum())
-                logging.info(f"{scenario_name}: actual=£{df['actual_revenue'].sum():.4f}")
                 logging.info(f"{scenario_name}: degradation_cost=£{degradation_cost:.4f}")
                 logging.info(f"{scenario_name}: self_consumption={sc_metrics['self_consumption']:.3f}")
                 logging.info(f"{scenario_name}: self_sufficiency={sc_metrics['self_sufficiency']:.3f}")
                 logging.info(f"{scenario_name}: violations={violations['total_violations']} ({violations['violation_rate']*100:.1f}%)")
+                # collect results for summary table
+                results_table.append({
+                    "scenario":        scenario_name,
+                    "mode":            mode,
+                    "house":           house,
+                    "apparent_rev":    round(df["actual_revenue"].sum(), 2),
+                    "degradation":     round(degradation_cost, 2),
+                    "true_revenue":    round(df["actual_revenue"].sum() - degradation_cost, 2),
+                    "self_consumption": round(sc_metrics["self_consumption"], 3),
+                    "violations":      violations["total_violations"],
+                    "violation_rate":  round(violations["violation_rate"] * 100, 1),
+                    "annual_charge":   round(df["charge"].sum(), 1),
+                    "curtailment_kwh":  round(curt_metrics["total_curtailment_kwh"], 2),
+                    "curtailment_rate": round(curt_metrics["curtailment_rate"] * 100, 2),
+                })
                 df.to_csv(f"{file_config.results_dir}/control_{scenario_name}_{mode}_h{house}_battery_{battery}.csv", index=False)
     else:
         df_rule = rule_based_scheduling(results, load, kwp, import_prices, export_prices, control_config.battery_capacity)
+        rule_degradation = df_rule["charge"].sum() * control_config.cycle_penalty
+        results_table.append({
+            "scenario":        "rule_based",
+            "mode":            mode,
+            "house":           house,
+            "apparent_rev":    round(df_rule["actual_revenue"].sum(), 2),
+            "degradation":     round(rule_degradation, 2),
+            "true_revenue":    round(df_rule["actual_revenue"].sum() - rule_degradation, 2),
+            "self_consumption": None,
+            "violations":      None,
+            "violation_rate":  None,
+            "annual_charge":   round(df_rule["charge"].sum(), 1),
+        })
         logging.info(f"rule_based: actual=£{df_rule['actual_revenue'].sum():.4f}")
         df_rule.to_csv(f"{file_config.results_dir}/control_rule_based_{mode}_h{house}.csv", index=False)
 
@@ -645,4 +702,24 @@ if __name__ == "__main__":
             logging.info(f"{name}: self_consumption={sc_metrics['self_consumption']:.3f}")
             logging.info(f"{name}: self_sufficiency={sc_metrics['self_sufficiency']:.3f}")
             logging.info(f"{name}: violations={violations['total_violations']} ({violations['violation_rate']*100:.1f}%)")
+
+            # collect results for summary table
+            results_table.append({
+                "scenario":        name,
+                "mode":            mode,
+                "house":           house,
+                "apparent_rev":    round(df["actual_revenue"].sum(), 2),
+                "degradation":     round(degradation_cost, 2),
+                "true_revenue":    round(df["actual_revenue"].sum() - degradation_cost, 2),
+                "self_consumption": round(sc_metrics["self_consumption"], 3),
+                "violations":      violations["total_violations"],
+                "violation_rate":  round(violations["violation_rate"] * 100, 1),
+                "annual_charge":   round(df["charge"].sum(), 1),
+            })
             df.to_csv(f"{file_config.results_dir}/control_{name}_{mode}_h{house}.csv", index=False)
+    summary_df = pd.DataFrame(results_table)
+    summary_path = f"{file_config.results_dir}/control_summary_{mode}_h{house}.csv"
+    summary_df.to_csv(summary_path, index=False)
+    logging.info(f"\n=== Summary Table ===")
+    logging.info(f"\n{summary_df.to_string()}")
+    logging.info(f"Saved to {summary_path}")
