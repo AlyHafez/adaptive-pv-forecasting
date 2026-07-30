@@ -131,11 +131,7 @@ def mpc(max_charge_rate:float, max_discharge_rate:float, max_import_rate:float,
             + control_config.q50_weight * cp.sum(charge_q50)
             + control_config.q90_weight * cp.sum(charge_q90)
         )
-        - control_config.import_penalty * (
-            control_config.q10_weight * cp.sum(import_q10)
-            + control_config.q50_weight * cp.sum(import_q50)
-            + control_config.q90_weight * cp.sum(import_q90)
-        )
+
     )
 
     problem = cp.Problem(objective, constraints)
@@ -224,7 +220,7 @@ def run_mpc(mpc:dict, t:int, results: pd.DataFrame, import_prices: np.ndarray, e
             "export_energy":   mpc["export_energy"].value[0],
             "soc_next":        mpc["soc"].value[1],
             "planned_revenue": mpc["problem"].value,
-            "forecast_type":   forecast_type,
+            "forecast_type":   forecast_type
         }
 
     else:
@@ -337,7 +333,7 @@ def simulate_control(results, initial_soc, H, forecast_type,
         initial_back_off = np.zeros(H)
     else:
         max_back_off = (control_config.max_soc - control_config.min_soc) / 8
-        initial_back_off = np.full(H, max_back_off * 0.5)
+        initial_back_off = np.zeros(H)
     
     mpc_controller = mpc(
         max_charge_rate=control_config.max_charge_rate,
@@ -386,11 +382,38 @@ def simulate_control(results, initial_soc, H, forecast_type,
             actual_export * export_prices[t]
             - actual_import * import_prices[t]
             )
-
+        if forecast_type == "probabilistic" and is_residual:
+            forecast_median = results["corrected_median"].values[t] * kwp
+            forecast_lower  = results["corrected_lower"].values[t] * kwp
+            forecast_upper  = results["corrected_upper"].values[t] * kwp
+        elif forecast_type == "probabilistic":
+            forecast_median = results["tft_pred"].values[t] * kwp
+            forecast_lower  = results["tft_lower"].values[t] * kwp
+            forecast_upper  = results["tft_upper"].values[t] * kwp
+        elif point_forecast == "persistence":
+            forecast_median = results["naive"].values[t] * kwp
+            forecast_lower = forecast_median
+            forecast_upper = forecast_median
+        elif point_forecast == "arima":
+            forecast_median = results["arima_pred"].values[t] * kwp
+            forecast_lower = forecast_median
+            forecast_upper = forecast_median
+        action["actual_revenue"]   = actual_revenue
+        action["actual_export"]    = actual_export
+        action["actual_import"]    = actual_import
+        action["actual_pv"]        = actual_gen
+        action["load"]             = load[t]
+        action["import_price"]     = import_prices[t]
+        action["export_price"]     = export_prices[t]
+        action["forecast_median"]  = forecast_median
+        action["forecast_lower"]   = forecast_lower
+        action["forecast_upper"]   = forecast_upper
+        action["soc"]              = current_soc
+        action["hour"]             = t % 24
+        action["day"]              = t // 24
         action["actual_revenue"] = actual_revenue
         action["actual_export"]  = actual_export
         action["actual_import"]  = actual_import
-        action["actual_pv"]      = actual_gen
         action["curtailment"]    = curtailment
         
         control_actions.append(action)
@@ -695,7 +718,9 @@ if __name__ == "__main__":
             violations = compute_soc_violations(df)
             load_total = load[:len(df)].sum()
             sc_metrics = compute_self_consumption(df, load_total)
-            
+            curt_metrics = compute_curtailment(df)
+            logging.info(f"{name}: curtailment={curt_metrics['total_curtailment_kwh']:.2f} kWh "
+            f"({curt_metrics['curtailment_rate']*100:.2f}%)")
             logging.info(df[["charge","discharge","actual_export","actual_import","actual_revenue"]].sum())
             logging.info(f"{name}: actual=£{df['actual_revenue'].sum():.4f}")
             logging.info(f"{name}: degradation_cost=£{degradation_cost:.4f}")
@@ -715,6 +740,8 @@ if __name__ == "__main__":
                 "violations":      violations["total_violations"],
                 "violation_rate":  round(violations["violation_rate"] * 100, 1),
                 "annual_charge":   round(df["charge"].sum(), 1),
+                "curtailment_kwh":  round(curt_metrics["total_curtailment_kwh"], 2),
+                "curtailment_rate": round(curt_metrics["curtailment_rate"] * 100, 2),                
             })
             df.to_csv(f"{file_config.results_dir}/control_{name}_{mode}_h{house}.csv", index=False)
     summary_df = pd.DataFrame(results_table)
