@@ -189,9 +189,9 @@ if __name__ == "__main__":
 
         
         ukpv2_df["series_id"] = ukpv2_df["location"]
-        ukpv2_df = ukpv_df.reset_index(drop=True)
+        ukpv2_df = ukpv2_df.reset_index(drop=True)
         ukpv2_df["time_idx"] = range(len(ukpv2_df))
-        logging.info("predictions for household 1 kwp:2.3")
+        logging.info("predictions for household 2 kwp:2.3")
         ukpv2_dataset = TimeSeriesDataSet.from_dataset(
             training_dataset, ukpv2_df,
             predict=False, stop_randomization=True, allow_missing_timesteps=True
