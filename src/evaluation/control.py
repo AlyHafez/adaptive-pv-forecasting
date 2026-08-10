@@ -5,10 +5,11 @@ import logging
 import sys
 from src.config import file_config, residuals_config, control_config # type: ignore[import]
 from src.data.data_acquisition import get_pv_system # type: ignore[import]
+from src.models.eval_residual import rolling_cqr_calibration # type: ignore[import]
 from scipy.stats import norm # type: ignore[import]
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 def mpc(max_charge_rate:float, max_discharge_rate:float, max_import_rate:float,
-         max_export_rate:float, H:int, back_off:np.ndarray, battery_capacity:float)->dict:
+         max_export_rate:float, H:int, battery_capacity:float)->dict:
     """Define the MPC optimization problem for PV self-consumption with battery storage.
     Args:
         max_charge_rate (float): Maximum charging power of the battery (kW).
@@ -27,6 +28,7 @@ def mpc(max_charge_rate:float, max_discharge_rate:float, max_import_rate:float,
     import_energy_price = cp.Parameter(shape = H, name="import_price", nonneg=True)
     export_energy_price = cp.Parameter(shape = H, name="export_price", nonneg=True)
     load = cp.Parameter(shape=H, name="load", nonneg=True)
+    back_off = cp.Parameter(shape=H, name="back_off", nonneg=True)
 
 
 
@@ -149,9 +151,10 @@ def mpc(max_charge_rate:float, max_discharge_rate:float, max_import_rate:float,
         "import_energy":    import_q50,
         "export_energy":    export_q50,
         "soc":              soc_q50,
+        "back_off":         back_off,
     }
 
-def run_mpc(mpc:dict, t:int, results: pd.DataFrame, import_prices: np.ndarray, export_prices: np.ndarray,load: np.ndarray, current_soc: float, H: int, forecast_type: str = "probabilistic", is_residual: bool = True, point_forecast:str = "tft", kwp: float = 1.0)->dict:
+def run_mpc(mpc:dict, t:int, results: pd.DataFrame, import_prices: np.ndarray, export_prices: np.ndarray,load: np.ndarray, current_soc: float, H: int,back_off_vector: np.ndarray, forecast_type: str = "probabilistic", is_residual: bool = True, point_forecast:str = "tft", kwp: float = 1.0)->dict:
     """Run the MPC optimization for a single time step.
     args:
         mpc (dict): The MPC problem and parameters.
@@ -171,8 +174,8 @@ def run_mpc(mpc:dict, t:int, results: pd.DataFrame, import_prices: np.ndarray, e
     if forecast_type == "probabilistic":
         if is_residual:
             median = results["corrected_median"].values[t:t+H]
-            lower  = results["corrected_lower"].values[t:t+H]
-            upper  = results["corrected_upper"].values[t:t+H]
+            lower  = results["calibrated_lower"].values[t:t+H]
+            upper  = results["calibrated_upper"].values[t:t+H]
             
         else:
             median = results["tft_pred"].values[t:t+H]
@@ -209,6 +212,7 @@ def run_mpc(mpc:dict, t:int, results: pd.DataFrame, import_prices: np.ndarray, e
     mpc["import_price"].value = import_prices[t:t+H]
     mpc["export_price"].value = export_prices[t:t+H]
     mpc["load"].value = load[t:t+H]
+    mpc["back_off"].value = back_off_vector
     mpc["problem"].solve(solver=cp.GUROBI, verbose=False, reoptimize=True)
 
     if mpc["problem"].status == cp.OPTIMAL:
@@ -243,6 +247,10 @@ def compute_back_off_rolling(results: pd.DataFrame, t: int,
         pred_col = "corrected_median"
     elif forecast_type == "probabilistic":
         pred_col = "tft_pred"
+    elif point_forecast == "persistence":
+        pred_col = "naive"
+
+        
     elif point_forecast == "tft":
         pred_col = "tft_pred"
     elif point_forecast == "arima":
@@ -252,17 +260,27 @@ def compute_back_off_rolling(results: pd.DataFrame, t: int,
     
     window_size  = 30 * 24
     window_start = max(0, t - window_size)
-    
+
     # warmup — less than 7 days of data
     if t - window_start < 7 * 24:
         max_back_off = (control_config.max_soc - control_config.min_soc) / 8
         return np.full(H, max_back_off * 0.5)
-    
+
+    # daylight-only: night hours are now forced to exactly 0 for every forecast
+    # column (see the daylight-zeroing step above), so including them here would
+    # dilute the error variance with a growing block of trivial zero-vs-zero
+    # matches instead of the real daytime forecast error the back-off is meant
+    # to protect against.
+    daylight_mask = results["daylight"].values[window_start:t] == 1
     past_errors = (
-        results["actual"].values[window_start:t] -
-        results[pred_col].values[window_start:t]
+        results["actual"].values[window_start:t][daylight_mask] -
+        results[pred_col].values[window_start:t][daylight_mask]
     ) * kwp
-    
+
+    if daylight_mask.sum() < 20:
+        max_back_off = (control_config.max_soc - control_config.min_soc) / 8
+        return np.full(H, max_back_off * 0.5)
+
     Qw = np.var(past_errors)
     z  = norm.ppf(1 - control_config.beta)
     
@@ -340,8 +358,7 @@ def simulate_control(results, initial_soc, H, forecast_type,
         max_discharge_rate=control_config.max_discharge_rate,
         max_import_rate=control_config.max_import_rate,
         max_export_rate=control_config.max_export_rate,
-        H=H,
-        back_off=initial_back_off, battery_capacity=battery_capacity
+        H=H, battery_capacity=battery_capacity
     )
     
     current_soc = initial_soc
@@ -352,23 +369,23 @@ def simulate_control(results, initial_soc, H, forecast_type,
         
         # rebuild MPC daily with updated rolling back-off
         if t % 24 == 0:
-            back_off = compute_back_off_rolling(
-                results, t, kwp, H,
-                forecast_type, is_residual, point_forecast, battery_capacity
-            )
+
             mpc_controller = mpc(
                 max_charge_rate=control_config.max_charge_rate,
                 max_discharge_rate=control_config.max_discharge_rate,
                 max_import_rate=control_config.max_import_rate,
                 max_export_rate=control_config.max_export_rate,
-                H=H,
-                back_off=back_off, battery_capacity=battery_capacity
+                H=H, battery_capacity=battery_capacity
+            )
+        back_off = compute_back_off_rolling(
+                results, t, kwp, H,
+                forecast_type, is_residual, point_forecast, battery_capacity
             )
         
         action = run_mpc(
             mpc_controller, t, results,
             import_prices, export_prices,
-            load, current_soc, H,
+            load, current_soc, H, back_off,
             forecast_type, is_residual, point_forecast, kwp
         )
         
@@ -384,8 +401,8 @@ def simulate_control(results, initial_soc, H, forecast_type,
             )
         if forecast_type == "probabilistic" and is_residual:
             forecast_median = results["corrected_median"].values[t] * kwp
-            forecast_lower  = results["corrected_lower"].values[t] * kwp
-            forecast_upper  = results["corrected_upper"].values[t] * kwp
+            forecast_lower  = results["calibrated_lower"].values[t] * kwp
+            forecast_upper  = results["calibrated_upper"].values[t] * kwp
         elif forecast_type == "probabilistic":
             forecast_median = results["tft_pred"].values[t] * kwp
             forecast_lower  = results["tft_lower"].values[t] * kwp
@@ -609,6 +626,22 @@ if __name__ == "__main__":
     elif house =="2":
         _, _, _, kwp = get_pv_system(max_kwp=2.5)
     results = pd.read_csv(f"{file_config.results_dir}/{ensemble_file}")
+    # corrected_median/lower/upper are already forced to exactly 0 outside daylight
+    # hours (eval_residual.py multiplies by the daylight flag). tft_pred/tft_lower/
+    # tft_upper and arima_pred never got the same treatment and carry real model
+    # noise at night (arima_pred up to ~0.49 normalised power, tft_pred up to ~0.24) --
+    # physically impossible generation that the MPC would otherwise react to for the
+    # "tft_prob" and "arima" scenarios. Zero them here so every scenario sees the
+    # same physically-consistent (zero generation outside daylight) inputs.
+    for col in ["tft_pred", "tft_lower", "tft_upper", "arima_pred"]:
+        results[col] = results[col] * results["daylight"]
+    # rolling CQR calibration -- widens corrected_lower/upper into calibrated_lower/upper
+    # with q_hat refit every 7 days from a trailing 30-day window, so the Q10/Q90
+    # scenarios the MPC optimizes over actually carry the conformal coverage guarantee
+    # instead of the uncalibrated residual-corrector spread.
+    results, _ = rolling_cqr_calibration(
+        results, target_coverage=0.80, calibration_days=30, recalibrate_every=7
+    )
     results_table = []
     scenarios = {
         "persistence":  dict(forecast_type="point",         is_residual=False, point_forecast="persistence"),

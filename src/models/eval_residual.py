@@ -315,8 +315,64 @@ def cqr_calibration(ensemble_results: pd.DataFrame,
     logging.info(f"Coverage after  (test period):  {coverage_after:.4f}")
     logging.info(f"Coverage after  (full year):    {coverage_full_year:.4f}")
     logging.info(f"Target:                         {target_coverage:.4f}")
-    
+
     return q_hat, calibrated
+
+
+def rolling_cqr_calibration(
+    ensemble_results: pd.DataFrame,
+    target_coverage: float = 0.80,
+    calibration_days: int = 30,
+    recalibrate_every: int = 7,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Same nonconformity score as cqr_calibration (Renkema et al. 2024 Eq. 7),
+    but q_hat is recomputed every `recalibrate_every` days from a trailing
+    `calibration_days`-day window instead of once from the first
+    `calibration_days` days of the year. A single fixed q_hat fit on January
+    residuals does not transfer to summer months, where absolute PV
+    generation (and forecast error) is much larger — a rolling window keeps
+    q_hat matched to the current season/regime.
+
+    No lookahead: each day's q_hat only ever uses residuals strictly before it."""
+    alpha = 1 - target_coverage
+    df = ensemble_results.copy()
+    df["date"] = pd.to_datetime(df["date"]).dt.date
+    unique_dates = sorted(df["date"].unique())
+
+    calibrated_lower = pd.Series(index=df.index, dtype=float)
+    calibrated_upper = pd.Series(index=df.index, dtype=float)
+    q_hat_log = []
+    last_q_hat = None
+
+    for i, day in enumerate(unique_dates):
+        day_mask = (df["date"] == day).values
+
+        if i < calibration_days:
+            # not enough trailing history yet -- fall back to the uncalibrated interval
+            calibrated_lower[day_mask] = df.loc[day_mask, "corrected_lower"]
+            calibrated_upper[day_mask] = df.loc[day_mask, "corrected_upper"]
+            continue
+
+        if last_q_hat is None or (i - calibration_days) % recalibrate_every == 0:
+            window_dates = unique_dates[i - calibration_days:i]
+            window = df[df["date"].isin(window_dates) & (df["daylight"] == 1)]
+            nc_scores = np.maximum(
+                window["corrected_lower"] - window["actual"],
+                window["actual"] - window["corrected_upper"],
+            )
+            n = len(nc_scores)
+            q_level = min(np.ceil((n + 1) * (1 - alpha)) / n, 1.0)
+            last_q_hat = np.quantile(nc_scores, q_level)
+            q_hat_log.append({"date": day, "q_hat": last_q_hat, "n_cal": n})
+
+        calibrated_lower[day_mask] = (df.loc[day_mask, "corrected_lower"] - last_q_hat).clip(lower=0)
+        calibrated_upper[day_mask] = (df.loc[day_mask, "corrected_upper"] + last_q_hat).clip(lower=0)
+
+    df["calibrated_lower"] = calibrated_lower
+    df["calibrated_upper"] = calibrated_upper
+    logging.info(f"Rolling CQR: {len(q_hat_log)} refits, "
+                 f"q_hat range {min(r['q_hat'] for r in q_hat_log):.4f}-{max(r['q_hat'] for r in q_hat_log):.4f}")
+    return df, pd.DataFrame(q_hat_log)
 
 
     
