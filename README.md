@@ -11,9 +11,9 @@ A three-stage adaptive framework for zero-shot residential solar PV forecasting.
 | Model | Clean NRMSE | Drifted NRMSE | Shaded NRMSE |
 |-------|-------------|---------------|--------------|
 | Naive persistence | 0.882 | 0.889 | 0.935 |
-| ARIMA | 1.020 | 1.022 | 1.090 |
+| ARIMA | 0.7656| 0.7720 | 0.8487 |
 | TFT (pretrained) | 0.964 | 0.960 | 0.974 |
-| **TFT + Residual (ours)** | **0.732** | **0.738** | **0.805** |
+| **TFT + Residual (ours)** | **0.7401** | **0.7474** | **0.8182** |
 
 - **14.8% capacity-normalised NRMSE** — competitive with supervised methods requiring weather station data
 - **< 1% difference** between pretrained and finetuned variants — zero-shot deployment viable
