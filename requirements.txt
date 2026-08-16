@@ -27,5 +27,6 @@ tensorboard
 # Utils
 matplotlib
 statsmodels
+dieboldmariano
 plotly
 tqdm
