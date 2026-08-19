@@ -119,6 +119,16 @@ if __name__ == "__main__":
     logging.info(f"Saved: {df2.shape}")
     logging.info(f"\n{df2.head()}")
 
+    ss_id3, lat3, lon3, kwp3 = get_pv_system(max_kwp=4.0, exclude_ss_id=[ss_id, ss_id2])
+    logging.info(f"Selected system {ss_id3} at lat={lat3}, lon={lon3}, kWp={kwp3}")
+    df_household3 = download_ukpv_system(ss_id3, kwp3, year=2023)
+    pvgis_format_df3 = prepare_ukpv_as_pvgis(df_household3, weather_df, ss_id3, lat3, lon3)
+    pvgis_format_df3["ss_id"] = ss_id3  # add ss_id for reference
+    df3 = add_features(f"London", lat3, lon3, df=pvgis_format_df3)
+    df3.to_parquet(f"{file_config.processed_data_dir}/ukpv_london_test_household3.parquet", index=False)
+    logging.info(f"Saved: {df3.shape}")
+    logging.info(f"\n{df3.head()}")
+
     systems = get_pv_systems_multiple(n=10, exclude_ss_id=2746)
     df_all: list[pd.DataFrame] = []
     for system in systems.iter_rows(named=True):

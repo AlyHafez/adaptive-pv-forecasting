@@ -431,12 +431,20 @@ if __name__ == "__main__":
             rolling_file = "predictions_rolling_finetuned.csv"
             ensemble_file = "predictions_rolling_finetuned_ensemble.csv"
             truth_path = file_config.test_set
-        else:
+        elif house == "2":
             run_name = "residual-evaluation-finetuned-house2"
             predictions_file = "predictions_ukpv2_finetuned.csv"
             rolling_file = "predictions_rolling_finetuned2.csv"
             ensemble_file = "predictions_rolling_finetuned_ensemble2.csv"
-            truth_path = file_config.household2_test_set            
+            truth_path = file_config.household2_test_set
+        elif house == "3":
+            run_name = "residual-evaluation-finetuned-house3"
+            predictions_file = "predictions_ukpv3_finetuned.csv"
+            rolling_file = "predictions_rolling_finetuned3.csv"
+            ensemble_file = "predictions_rolling_finetuned_ensemble3.csv"
+            truth_path = file_config.household3_test_set
+        else:
+            raise ValueError(f"Unknown house: {house}")
         metrics_prefix = "finetuned"
 
     elif mode == "pretrained":
@@ -446,12 +454,20 @@ if __name__ == "__main__":
             rolling_file = "predictions_rolling_pretrained.csv"
             ensemble_file = "predictions_rolling_pretrained_ensemble.csv"
             truth_path = file_config.test_set
-        else:
+        elif house == "2":
             run_name = "residual-evaluation-pretrained-house2"
             predictions_file = "predictions_ukpv2_pretrained.csv"
             rolling_file = "predictions_rolling_pretrained2.csv"
             ensemble_file = "predictions_rolling_pretrained_ensemble2.csv"
-            truth_path = file_config.household2_test_set           
+            truth_path = file_config.household2_test_set
+        elif house == "3":
+            run_name = "residual-evaluation-pretrained-house3"
+            predictions_file = "predictions_ukpv3_pretrained.csv"
+            rolling_file = "predictions_rolling_pretrained3.csv"
+            ensemble_file = "predictions_rolling_pretrained_ensemble3.csv"
+            truth_path = file_config.household3_test_set
+        else:
+            raise ValueError(f"Unknown house: {house}")
         metrics_prefix = "pretrained"
     elif mode == "finetuned_drifted":
         if house == "1":
@@ -460,12 +476,20 @@ if __name__ == "__main__":
             rolling_file = "predictions_rolling_finetuned_drifted.csv"
             ensemble_file = "predictions_rolling_finetuned_drifted_ensemble.csv"
             truth_path = file_config.test_set_drifted
-        else:
+        elif house == "2":
             run_name = "residual-evaluation-finetuned-drifted-house2"
             predictions_file = "predictions_ukpv2_finetuned_drifted.csv"
             rolling_file = "predictions_rolling_finetuned_drifted2.csv"
             ensemble_file = "predictions_rolling_finetuned_drifted_ensemble2.csv"
-            truth_path = file_config.household2_test_set_drifted           
+            truth_path = file_config.household2_test_set_drifted
+        elif house == "3":
+            run_name = "residual-evaluation-finetuned-drifted-house3"
+            predictions_file = "predictions_ukpv3_finetuned_drifted.csv"
+            rolling_file = "predictions_rolling_finetuned_drifted3.csv"
+            ensemble_file = "predictions_rolling_finetuned_drifted_ensemble3.csv"
+            truth_path = file_config.household3_test_set_drifted
+        else:
+            raise ValueError(f"Unknown house: {house}")
         metrics_prefix = "finetuned_drifted"
     elif mode == "pretrained_drifted":
         if house == "1":
@@ -474,12 +498,20 @@ if __name__ == "__main__":
             rolling_file = "predictions_rolling_pretrained_drifted.csv"
             ensemble_file = "predictions_rolling_pretrained_drifted_ensemble.csv"
             truth_path = file_config.test_set_drifted
-        else:
+        elif house == "2":
             run_name = "residual-evaluation-pretrained-drifted-house2"
             predictions_file = "predictions_ukpv2_pretrained_drifted.csv"
             rolling_file = "predictions_rolling_pretrained_drifted2.csv"
             ensemble_file = "predictions_rolling_pretrained_drifted_ensemble2.csv"
-            truth_path = file_config.household2_test_set_drifted            
+            truth_path = file_config.household2_test_set_drifted
+        elif house == "3":
+            run_name = "residual-evaluation-pretrained-drifted-house3"
+            predictions_file = "predictions_ukpv3_pretrained_drifted.csv"
+            rolling_file = "predictions_rolling_pretrained_drifted3.csv"
+            ensemble_file = "predictions_rolling_pretrained_drifted_ensemble3.csv"
+            truth_path = file_config.household3_test_set_drifted
+        else:
+            raise ValueError(f"Unknown house: {house}")
         metrics_prefix = "pretrained_drifted"
     elif mode == "finetuned_shaded":
         if house =="1":
@@ -488,12 +520,20 @@ if __name__ == "__main__":
             rolling_file = "predictions_rolling_finetuned_shaded.csv"
             ensemble_file = "predictions_rolling_finetuned_shaded_ensemble.csv"
             truth_path = file_config.test_set_shaded
-        else:
+        elif house == "2":
             run_name = "residual-evaluation-finetuned-shaded-house2"
             predictions_file = "predictions_ukpv2_finetuned_shaded.csv"
             rolling_file = "predictions_rolling_finetuned_shaded2.csv"
             ensemble_file = "predictions_rolling_finetuned_shaded_ensemble2.csv"
             truth_path = file_config.household2_test_set_shaded
+        elif house == "3":
+            run_name = "residual-evaluation-finetuned-shaded-house3"
+            predictions_file = "predictions_ukpv3_finetuned_shaded.csv"
+            rolling_file = "predictions_rolling_finetuned_shaded3.csv"
+            ensemble_file = "predictions_rolling_finetuned_shaded_ensemble3.csv"
+            truth_path = file_config.household3_test_set_shaded
+        else:
+            raise ValueError(f"Unknown house: {house}")
         metrics_prefix = "finetuned_shaded"
     elif mode == "pretrained_shaded":
         if house == "1":
@@ -502,12 +542,20 @@ if __name__ == "__main__":
             rolling_file = "predictions_rolling_pretrained_shaded.csv"
             ensemble_file = "predictions_rolling_pretrained_shaded_ensemble.csv"
             truth_path = file_config.test_set_shaded
-        else:
+        elif house == "2":
             run_name = "residual-evaluation-pretrained-shaded-house2"
             predictions_file = "predictions_ukpv2_pretrained_shaded.csv"
             rolling_file = "predictions_rolling_pretrained_shaded2.csv"
             ensemble_file = "predictions_rolling_pretrained_shaded_ensemble2.csv"
             truth_path = file_config.household2_test_set_shaded
+        elif house == "3":
+            run_name = "residual-evaluation-pretrained-shaded-house3"
+            predictions_file = "predictions_ukpv3_pretrained_shaded.csv"
+            rolling_file = "predictions_rolling_pretrained_shaded3.csv"
+            ensemble_file = "predictions_rolling_pretrained_shaded_ensemble3.csv"
+            truth_path = file_config.household3_test_set_shaded
+        else:
+            raise ValueError(f"Unknown house: {house}")
         metrics_prefix = "pretrained_shaded"
     else:
         raise ValueError(f"Unknown mode: {mode}")

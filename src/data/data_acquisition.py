@@ -71,7 +71,8 @@ def get_pv_systems_multiple(n: int = 10, exclude_ss_id: int = 2746,
     return systems
 
 def get_pv_system( lat_min: float = 51.3, lat_max: float = 51.7,
-                  lon_min: float = -0.5, lon_max: float = 0.3, max_kwp:float = 4.0):
+                  lon_min: float = -0.5, lon_max: float = 0.3, max_kwp:float = 4.0,
+                  exclude_ss_id: list[int] | None = None):
     metadata_path = hf_hub_download(
         repo_id="openclimatefix/uk_pv",
         filename="metadata.csv",
@@ -79,14 +80,16 @@ def get_pv_system( lat_min: float = 51.3, lat_max: float = 51.7,
         token=os.getenv("HF_TOKEN")
     )
     metadata = pl.read_csv(metadata_path)
-    
+
     london = metadata.filter(
         (pl.col("latitude_rounded").is_between(lat_min, lat_max)) &
         (pl.col("longitude_rounded").is_between(lon_min, lon_max)) &
         (pl.col("kWp") <= max_kwp) &
         (pl.col("end_datetime_GMT") >= "2023-12-01")
     )
-    
+    if exclude_ss_id:
+        london = london.filter(~pl.col("ss_id").is_in(exclude_ss_id))
+
     system = london.row(0, named=True)
     logging.info(f"Selected system {system['ss_id']} at lat={system['latitude_rounded']}, lon={system['longitude_rounded']}, kWp={system['kWp']}")
     return system["ss_id"], system["latitude_rounded"], system["longitude_rounded"], system["kWp"]

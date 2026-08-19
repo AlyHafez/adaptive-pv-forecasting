@@ -92,31 +92,37 @@ if __name__ == "__main__":
         checkpoint_path = file_config.fine_tuned_path
         output_file = "predictions_ukpv_finetuned.csv"
         output_file2 = "predictions_ukpv2_finetuned.csv"
+        output_file3 = "predictions_ukpv3_finetuned.csv"
         run_name = "eval-ukpv-finetuned"
     elif mode == "ukpv_pretrained":
         checkpoint_path = file_config.tft_checkpoint_path
         output_file = "predictions_ukpv_pretrained.csv"
         output_file2 = "predictions_ukpv2_pretrained.csv"
+        output_file3 = "predictions_ukpv3_pretrained.csv"
         run_name = "eval-ukpv-pretrained"
     elif mode == "ukpv_finetuned_drifted":
         checkpoint_path =file_config.fine_tuned_path
         output_file = "predictions_ukpv_finetuned_drifted.csv"
         output_file2 = "predictions_ukpv2_finetuned_drifted.csv"
+        output_file3 = "predictions_ukpv3_finetuned_drifted.csv"
         run_name = "eval-ukpv-finetuned-drifted"
     elif mode == "ukpv_pretrained_drifted":
         checkpoint_path = file_config.tft_checkpoint_path
         output_file = "predictions_ukpv_pretrained_drifted.csv"
         output_file2 = "predictions_ukpv2_pretrained_drifted.csv"
+        output_file3 = "predictions_ukpv3_pretrained_drifted.csv"
         run_name = "eval-ukpv-pretrained-drifted"
     elif mode == "ukpv_finetuned_shaded":
         checkpoint_path = file_config.fine_tuned_path
         output_file = "predictions_ukpv_finetuned_shaded.csv"
         output_file2 = "predictions_ukpv2_finetuned_shaded.csv"
+        output_file3 = "predictions_ukpv3_finetuned_shaded.csv"
         run_name = "eval-ukpv-finetuned-shaded"
     elif mode == "ukpv_pretrained_shaded":
         checkpoint_path = file_config.tft_checkpoint_path
         output_file = "predictions_ukpv_pretrained_shaded.csv"
         output_file2 = "predictions_ukpv2_pretrained_shaded.csv"
+        output_file3 = "predictions_ukpv3_pretrained_shaded.csv"
         run_name = "eval-ukpv-pretrained-shaded"
     else:
         raise ValueError(f"Unknown mode: {mode}")
@@ -151,17 +157,22 @@ if __name__ == "__main__":
     else:  # ukpv_finetuned or ukpv_pretrained
         ukpv_df = pd.read_parquet(file_config.test_set)
         ukpv2_df = pd.read_parquet(file_config.household2_test_set)
+        ukpv3_df = pd.read_parquet(file_config.household3_test_set)
         if mode in ["ukpv_finetuned_drifted", "ukpv_pretrained_drifted"]:
             ukpv_df = simulate_drift(ukpv_df, drift_magnitude=0.25, drift_start=pd.Timestamp("2023-06-01 00:00:00"))
             ukpv_df.to_parquet(f"{file_config.test_set_drifted}", index=False)
             ukpv2_df = simulate_drift(ukpv2_df,drift_magnitude=0.25, drift_start=pd.Timestamp("2023-06-01 00:00:00"))
             ukpv2_df.to_parquet(f"{file_config.household2_test_set_drifted}", index=False)
-            
+            ukpv3_df = simulate_drift(ukpv3_df,drift_magnitude=0.25, drift_start=pd.Timestamp("2023-06-01 00:00:00"))
+            ukpv3_df.to_parquet(f"{file_config.household3_test_set_drifted}", index=False)
+
         if mode in ["ukpv_finetuned_shaded", "ukpv_pretrained_shaded"]:
             ukpv_df = simulate_partial_shading(ukpv_df, shading_magnitude=0.4153, shading_start=pd.Timestamp("2023-06-01 00:00:00"))
             ukpv_df.to_parquet(f"{file_config.test_set_shaded}", index=False)
             ukpv2_df = simulate_partial_shading(ukpv2_df, shading_magnitude=0.4153, shading_start=pd.Timestamp("2023-06-01 00:00:00"))
             ukpv2_df.to_parquet(f"{file_config.household2_test_set_shaded}", index=False)
+            ukpv3_df = simulate_partial_shading(ukpv3_df, shading_magnitude=0.4153, shading_start=pd.Timestamp("2023-06-01 00:00:00"))
+            ukpv3_df.to_parquet(f"{file_config.household3_test_set_shaded}", index=False)
 
         ukpv_df["series_id"] = ukpv_df["location"]
         ukpv_df = ukpv_df.reset_index(drop=True)
@@ -211,5 +222,29 @@ if __name__ == "__main__":
         df_out["upper"] = df_out["upper"].clip(lower=0)
         df_out.to_csv(f"{file_config.results_dir}/{output_file2}", index=False)
         logging.info(f"UK_PV household 2 predictions saved to {output_file2}")
+
+        ukpv3_df["series_id"] = ukpv3_df["location"]
+        ukpv3_df = ukpv3_df.reset_index(drop=True)
+        ukpv3_df["time_idx"] = range(len(ukpv3_df))
+        logging.info("predictions for household 3")
+        ukpv3_dataset = TimeSeriesDataSet.from_dataset(
+            training_dataset, ukpv3_df,
+            predict=False, stop_randomization=True, allow_missing_timesteps=True
+        )
+        ukpv3_dataloader = dataloader(ukpv3_dataset, batch_size=tft_config.test_batch_size, train=False)
+        predictions = evaluate_tft(best_model, ukpv3_dataloader)
+        quantiles = predictions.output.prediction
+        df_out = pd.DataFrame({
+            "time": ukpv3_df["time"].values[168+23:168+23+len(quantiles)],
+            "actual": predictions.y[0].cpu().numpy()[:, 23],
+            "median": quantiles[:, 23, 1].cpu().numpy(),
+            "lower": quantiles[:, 23, 0].cpu().numpy(),
+            "upper": quantiles[:, 23, 2].cpu().numpy(),
+        })
+        df_out["median"] = df_out["median"].clip(lower=0)
+        df_out["lower"] = df_out["lower"].clip(lower=0)
+        df_out["upper"] = df_out["upper"].clip(lower=0)
+        df_out.to_csv(f"{file_config.results_dir}/{output_file3}", index=False)
+        logging.info(f"UK_PV household 3 predictions saved to {output_file3}")
 
     wandb.finish()  # type: ignore
